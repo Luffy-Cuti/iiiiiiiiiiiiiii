@@ -39,8 +39,9 @@ class LoginState {
       obscurePassword: obscurePassword ?? this.obscurePassword,
       isLoading: isLoading ?? this.isLoading,
       emailError: clearEmailError ? null : emailError ?? this.emailError,
-      passwordError:
-      clearPasswordError ? null : passwordError ?? this.passwordError,
+      passwordError: clearPasswordError
+          ? null
+          : passwordError ?? this.passwordError,
       message: clearMessage ? null : message ?? this.message,
     );
   }

@@ -10,13 +10,14 @@ class LoginBloc {
   }
 
   final StreamController<LoginEvent> _eventController =
-  StreamController<LoginEvent>();
+      StreamController<LoginEvent>();
   final StreamController<LoginState> _stateController =
-  StreamController<LoginState>.broadcast();
+      StreamController<LoginState>.broadcast();
 
   LoginState _state = const LoginState();
 
   Stream<LoginState> get stream => _stateController.stream;
+
   LoginState get state => _state;
 
   void add(LoginEvent event) {
@@ -54,7 +55,7 @@ class LoginBloc {
         _emit(
           _state.copyWith(
             message:
-            'Nút Google sẵn sàng UI. Cần firebase_auth + google_sign_in để hoạt động.',
+                'Nút Google sẵn sàng UI. Cần firebase_auth + google_sign_in để hoạt động.',
           ),
         );
       case LoginSubmitted():
@@ -92,7 +93,7 @@ class LoginBloc {
       _state.copyWith(
         isLoading: false,
         message:
-        'Đăng nhập thành công (mock). Hãy tích hợp Firebase Auth để dùng thật.',
+            'Đăng nhập thành công (mock). Hãy tích hợp Firebase Auth để dùng thật.',
       ),
     );
   }
