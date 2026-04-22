@@ -8,6 +8,7 @@ class LoginState {
     this.emailError,
     this.passwordError,
     this.message,
+    this.isLoggedIn = false,
   });
 
   final String emailOrPhone;
@@ -18,6 +19,8 @@ class LoginState {
   final String? emailError;
   final String? passwordError;
   final String? message;
+  final bool isLoggedIn;
+
 
   LoginState copyWith({
     String? emailOrPhone,
@@ -28,6 +31,7 @@ class LoginState {
     String? emailError,
     String? passwordError,
     String? message,
+    bool? isLoggedIn,
     bool clearEmailError = false,
     bool clearPasswordError = false,
     bool clearMessage = false,
@@ -43,6 +47,7 @@ class LoginState {
           ? null
           : passwordError ?? this.passwordError,
       message: clearMessage ? null : message ?? this.message,
+      isLoggedIn: isLoggedIn ?? this.isLoggedIn,
     );
   }
 }

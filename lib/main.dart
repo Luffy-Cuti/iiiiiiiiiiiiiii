@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/services/notification_service.dart';
 import 'features/home/bloc/video_bloc.dart';
+import 'features/auth/services/auth_local_storage.dart';
 import 'features/home/view/home_screen.dart';
 import 'features/upload/bloc/upload_bloc.dart';
 
@@ -44,6 +46,24 @@ Future<void> _initFirebaseCrashlytics() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+  Widget _buildInitialScreen() {
+    return FutureBuilder<bool>(
+      future: AuthLocalStorage.isLoggedIn(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.data == true) {
+          return const HomeScreen();
+        }
+
+        return LoginPage(bloc: LoginBloc());
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +79,7 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.dark,
           scaffoldBackgroundColor: Colors.black,
         ),
-        home: const HomeScreen(),
+        home: _buildInitialScreen(),
       ),
 
     );

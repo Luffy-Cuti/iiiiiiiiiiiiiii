@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:async';
+import '../services/auth_local_storage.dart';
 
 import 'login_event.dart';
 import 'login_state.dart';
 
 class LoginBloc {
+  static const String mockEmail = 'test@demo.com';
+  static const String mockPassword = '12345678';
+
   LoginBloc() {
     _eventController.stream.listen(_handleEvent);
   }
@@ -77,6 +81,19 @@ class LoginBloc {
       );
       return;
     }
+    final isCorrectMockAccount =
+        _state.emailOrPhone.trim().toLowerCase() == mockEmail &&
+            _state.password == mockPassword;
+
+    if (!isCorrectMockAccount) {
+      _emit(
+        _state.copyWith(
+          message:
+          'Sai tài khoản test. Dùng $mockEmail / $mockPassword để đăng nhập mock.',
+        ),
+      );
+      return;
+    }
 
     _emit(
       _state.copyWith(
@@ -94,8 +111,14 @@ class LoginBloc {
         isLoading: false,
         message:
             'Đăng nhập thành công (mock). Hãy tích hợp Firebase Auth để dùng thật.',
+        isLoggedIn: true,
       ),
     );
+    if (_state.rememberMe) {
+      await AuthLocalStorage.saveLoginStatus(isLoggedIn: true);
+    } else {
+      await AuthLocalStorage.clearLoginStatus();
+    }
   }
 
   String? _validateEmailOrPhone(String value) {

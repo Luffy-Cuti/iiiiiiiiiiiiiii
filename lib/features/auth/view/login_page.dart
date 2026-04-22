@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../home/view/home_screen.dart';
 
 import '../bloc/login_bloc.dart';
 import '../bloc/login_event.dart';
@@ -25,6 +26,7 @@ class _LoginPageState extends State<LoginPage>
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
   String? _lastShownMessage;
+  bool _hasNavigatedToHome = false;
 
   @override
   void initState() {
@@ -152,14 +154,26 @@ class _LoginPageState extends State<LoginPage>
                   ),
                 );
             });
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted || _hasNavigatedToHome || !state.isLoggedIn) {
+                return;
+              }
+
+              _hasNavigatedToHome = true;
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+              );
+            });
 
             return FadeTransition(
               opacity: _fadeAnimation,
               child: SlideTransition(
                 position: _slideAnimation,
                 child: SingleChildScrollView(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 12,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -172,6 +186,23 @@ class _LoginPageState extends State<LoginPage>
                         style: TextStyle(color: textSecondary, fontSize: 14),
                       ),
                       const SizedBox(height: 34),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0x221A9E55),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0x5533D17A)),
+                        ),
+                        child: const Text(
+                          'Tài khoản test: test@demo.com\nMật khẩu: 12345678',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12.5,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
                       TextField(
                         onChanged: (value) =>
                             widget.bloc.add(EmailChanged(value)),
@@ -194,8 +225,9 @@ class _LoginPageState extends State<LoginPage>
                           icon: Icons.lock_outline,
                           errorText: state.passwordError,
                           suffix: IconButton(
-                            onPressed: () =>
-                                widget.bloc.add(const PasswordVisibilityToggled()),
+                            onPressed: () => widget.bloc.add(
+                              const PasswordVisibilityToggled(),
+                            ),
                             icon: Icon(
                               state.obscurePassword
                                   ? Icons.visibility_off_outlined
@@ -249,20 +281,20 @@ class _LoginPageState extends State<LoginPage>
                           ),
                           child: state.isLoading
                               ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.3,
-                              color: textPrimary,
-                            ),
-                          )
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.3,
+                                    color: textPrimary,
+                                  ),
+                                )
                               : const Text(
-                            'Đăng nhập',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                                  'Đăng nhập',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(height: 12),
