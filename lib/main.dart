@@ -3,6 +3,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'core/constants/app_colors.dart';
+import 'core/constants/app_strings.dart';
+import 'features/auth/bloc/login_bloc.dart';
+import 'features/auth/repository/firebase_auth_repository.dart';
+import 'features/shell/app_shell.dart';
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -20,7 +28,7 @@ import 'features/auth/view/login_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await _initFirebaseCrashlytics();
+  await _initFirebase();
   await NotificationService.instance.initialize();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -31,42 +39,30 @@ Future<void> main() async {
   );
   runApp(const MyApp());
 }
-Future<void> _initFirebaseCrashlytics() async {
+Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp();
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AndroidProvider.playIntegrity,
+      appleProvider: AppleProvider.deviceCheck,
+    );
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
   } catch (_) {
-    // Keep app running even if Firebase config is not present.
+
   }
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-  Widget _buildInitialScreen() {
-    return FutureBuilder<bool>(
-      future: AuthLocalStorage.isLoggedIn(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
 
-        if (snapshot.data == true) {
-          return const HomeScreen();
-        }
-
-        return LoginPage(bloc: LoginBloc());
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
+    final authRepository = FirebaseAuthRepository();
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => VideoBloc()),
@@ -74,12 +70,16 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'TikTok Home',
+        title: AppStrings.appTitle,
         theme: ThemeData(
           brightness: Brightness.dark,
-          scaffoldBackgroundColor: Colors.black,
+          scaffoldBackgroundColor: AppColors.background,
         ),
-        home: _buildInitialScreen(),
+        home: AppShell(
+          authRepository: authRepository,
+          loginBlocFactory: () => LoginBloc(authRepository: authRepository),
+        ),
+
       ),
 
     );

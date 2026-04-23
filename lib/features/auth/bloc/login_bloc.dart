@@ -1,18 +1,23 @@
 import 'dart:async';
 import 'dart:async';
+import '../repository/firebase_auth_repository.dart';
 import '../services/auth_local_storage.dart';
 
 import 'login_event.dart';
 import 'login_state.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../../core/constants/app_strings.dart';
+import '../repository/auth_repository.dart';
+import '../services/auth_local_storage.dart';
 
 class LoginBloc {
-  static const String mockEmail = 'test@demo.com';
-  static const String mockPassword = '12345678';
-
-  LoginBloc() {
+  LoginBloc({AuthRepository? authRepository})
+    : _authRepository = authRepository ?? FirebaseAuthRepository() {
     _eventController.stream.listen(_handleEvent);
   }
 
+  final AuthRepository _authRepository;
   final StreamController<LoginEvent> _eventController =
       StreamController<LoginEvent>();
   final StreamController<LoginState> _stateController =
@@ -38,15 +43,17 @@ class LoginBloc {
       case EmailChanged():
         _emit(
           _state.copyWith(
-            emailOrPhone: event.value,
+            email: event.value.trim().toLowerCase(),
             clearEmailError: true,
             clearMessage: true,
           ),
         );
       case PasswordChanged():
+        final value = event.value;
         _emit(
           _state.copyWith(
-            password: event.value,
+            password: value,
+            passwordStrength: _measurePasswordStrength(value),
             clearPasswordError: true,
             clearMessage: true,
           ),
@@ -56,20 +63,21 @@ class LoginBloc {
       case PasswordVisibilityToggled():
         _emit(_state.copyWith(obscurePassword: !_state.obscurePassword));
       case GoogleLoginTapped():
-        _emit(
-          _state.copyWith(
-            message:
-                'Nút Google sẵn sàng UI. Cần firebase_auth + google_sign_in để hoạt động.',
-          ),
-        );
+        await _submitGoogleLogin();
+      case AppleLoginTapped():
+        await _submitAppleLogin();
       case LoginSubmitted():
         await _submitLogin();
+      case ForgotPasswordSubmitted():
+        await _submitForgotPassword();
+      case RegisterSubmitted():
+        await _submitRegister();
     }
   }
 
   Future<void> _submitLogin() async {
-    final String? emailError = _validateEmailOrPhone(_state.emailOrPhone);
-    final String? passwordError = _validatePassword(_state.password);
+    final emailError = _validateEmail(_state.email);
+    final passwordError = _validatePassword(_state.password);
 
     if (emailError != null || passwordError != null) {
       _emit(
@@ -81,58 +89,115 @@ class LoginBloc {
       );
       return;
     }
-    final isCorrectMockAccount =
-        _state.emailOrPhone.trim().toLowerCase() == mockEmail &&
-            _state.password == mockPassword;
+    _emit(_state.copyWith(isLoading: true, clearMessage: true));
 
-    if (!isCorrectMockAccount) {
+    try {
+      await _authRepository.signInWithEmailAndPassword(
+        email: _state.email,
+        password: _state.password,
+      );
+      if (_state.rememberMe) {
+        await AuthLocalStorage.saveLoginStatus(isLoggedIn: true);
+      }
+      _emit(_state.copyWith(isLoading: false, isLoggedIn: true));
+    } on FirebaseAuthException catch (e) {
       _emit(
         _state.copyWith(
-          message:
-          'Sai tài khoản test. Dùng $mockEmail / $mockPassword để đăng nhập mock.',
+          isLoading: false,
+          message: e.message ?? AppStrings.loginFailed,
         ),
+      );
+    }
+  }
+
+  Future<void> _submitRegister() async {
+    final emailError = _validateEmail(_state.email);
+    final passwordError = _validatePassword(_state.password);
+    if (emailError != null || passwordError != null) {
+      _emit(
+        _state.copyWith(emailError: emailError, passwordError: passwordError),
       );
       return;
     }
 
-    _emit(
-      _state.copyWith(
-        isLoading: true,
-        clearEmailError: true,
-        clearPasswordError: true,
-        clearMessage: true,
-      ),
-    );
-
-    await Future<void>.delayed(const Duration(seconds: 2));
-
-    _emit(
-      _state.copyWith(
-        isLoading: false,
-        message:
-            'Đăng nhập thành công (mock). Hãy tích hợp Firebase Auth để dùng thật.',
-        isLoggedIn: true,
-      ),
-    );
-    if (_state.rememberMe) {
-      await AuthLocalStorage.saveLoginStatus(isLoggedIn: true);
-    } else {
-      await AuthLocalStorage.clearLoginStatus();
+    _emit(_state.copyWith(isLoading: true, clearMessage: true));
+    try {
+      await _authRepository.registerWithEmailAndPassword(
+        email: _state.email,
+        password: _state.password,
+      );
+      _emit(
+        _state.copyWith(isLoading: false, message: AppStrings.registerSuccess),
+      );
+    } on FirebaseAuthException catch (e) {
+      _emit(
+        _state.copyWith(
+          isLoading: false,
+          message: e.message ?? AppStrings.loginFailed,
+        ),
+      );
     }
   }
 
-  String? _validateEmailOrPhone(String value) {
-    final input = value.trim();
-
-    if (input.isEmpty) {
-      return 'Vui lòng nhập email hoặc số điện thoại';
+  Future<void> _submitForgotPassword() async {
+    final emailError = _validateEmail(_state.email);
+    if (emailError != null) {
+      _emit(_state.copyWith(emailError: emailError));
+      return;
     }
+    _emit(_state.copyWith(isLoading: true, clearMessage: true));
+    try {
+      await _authRepository.sendPasswordResetEmail(email: _state.email);
+      _emit(_state.copyWith(isLoading: false, message: AppStrings.resetSent));
+    } on FirebaseAuthException catch (e) {
+      _emit(
+        _state.copyWith(
+          isLoading: false,
+          message: e.message ?? AppStrings.loginFailed,
+        ),
+      );
+    }
+  }
 
-    final bool isPhone = RegExp(r'^\d+$').hasMatch(input);
-    final bool isEmail = input.contains('@');
+  Future<void> _submitGoogleLogin() async {
+    _emit(_state.copyWith(isLoading: true, clearMessage: true));
+    try {
+      await _authRepository.signInWithGoogle();
+      await AuthLocalStorage.saveLoginStatus(isLoggedIn: true);
+      _emit(_state.copyWith(isLoading: false, isLoggedIn: true));
+    } on FirebaseAuthException catch (e) {
+      _emit(
+        _state.copyWith(
+          isLoading: false,
+          message: e.message ?? AppStrings.loginFailed,
+        ),
+      );
+    }
+  }
 
-    if (!isPhone && !isEmail) {
-      return 'Email phải chứa @ hoặc nhập số điện thoại hợp lệ';
+  Future<void> _submitAppleLogin() async {
+    _emit(_state.copyWith(isLoading: true, clearMessage: true));
+    try {
+      await _authRepository.signInWithApple();
+      await AuthLocalStorage.saveLoginStatus(isLoggedIn: true);
+      _emit(_state.copyWith(isLoading: false, isLoggedIn: true));
+    } on FirebaseAuthException catch (e) {
+      _emit(
+        _state.copyWith(
+          isLoading: false,
+          message: e.message ?? AppStrings.loginFailed,
+        ),
+      );
+    }
+  }
+
+  String? _validateEmail(String value) {
+    if (value.isEmpty) {
+      return AppStrings.requiredEmail;
+    }
+    final isEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
+    if (!isEmail) {
+      return AppStrings.invalidEmail;
     }
 
     return null;
@@ -140,14 +205,32 @@ class LoginBloc {
 
   String? _validatePassword(String value) {
     if (value.isEmpty) {
-      return 'Vui lòng nhập mật khẩu';
+      return AppStrings.requiredPassword;
     }
 
     if (value.length < 8) {
-      return 'Mật khẩu phải tối thiểu 8 ký tự';
+      return AppStrings.weakPassword;
     }
 
     return null;
+  }
+
+  double _measurePasswordStrength(String value) {
+    if (value.isEmpty) {
+      return 0;
+    }
+    final hasUppercase = RegExp(r'[A-Z]').hasMatch(value);
+    final hasLowercase = RegExp(r'[a-z]').hasMatch(value);
+    final hasDigit = RegExp(r'\d').hasMatch(value);
+    final hasSpecial = RegExp(r'[^A-Za-z0-9]').hasMatch(value);
+
+    var score = 0.0;
+    if (value.length >= 8) score += 0.25;
+    if (hasUppercase && hasLowercase) score += 0.25;
+    if (hasDigit) score += 0.25;
+    if (hasSpecial) score += 0.25;
+
+    return score;
   }
 
   void dispose() {

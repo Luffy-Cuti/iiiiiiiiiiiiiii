@@ -42,7 +42,10 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
 
   Timer? _timer;
 
-  Future<void> _onStartUpload(StartUpload event, Emitter<UploadState> emit) async {
+  Future<void> _onStartUpload(
+    StartUpload event,
+    Emitter<UploadState> emit,
+  ) async {
     if (state.isUploading) return;
 
     emit(state.copyWith(progress: 0, isUploading: true));
@@ -59,7 +62,10 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     });
   }
 
-  Future<void> _onUploadTick(_UploadTick event, Emitter<UploadState> emit) async {
+  Future<void> _onUploadTick(
+    _UploadTick event,
+    Emitter<UploadState> emit,
+  ) async {
     final clamped = event.progress.clamp(0, 100);
     await NotificationService.instance.showUploadProgress(clamped);
     emit(state.copyWith(progress: clamped, isUploading: clamped < 100));

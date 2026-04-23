@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../home/view/home_screen.dart';
+import 'dart:io';
 
 import '../bloc/login_bloc.dart';
 import '../bloc/login_event.dart';
 import '../bloc/login_state.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/app_text_styles.dart';
+import '../../home/view/home_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({required this.bloc, super.key});
@@ -16,15 +21,15 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage>
     with SingleTickerProviderStateMixin {
-  static const Color tiktokRed = Color(0xFFFF0050);
-  static const Color tiktokCyan = Color(0xFF00F2EA);
-  static const Color textPrimary = Color(0xFFF1F1F2);
-  static const Color textSecondary = Color(0xFF8A8B8C);
-  static const Color fieldBackground = Color(0xFF2F2F2F);
+  static const Duration animationDuration = Duration(milliseconds: 900);
 
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
+  late final TextEditingController _emailController;
+  late final TextEditingController _passwordController;
+  late final FocusNode _emailFocus;
+  late final FocusNode _passwordFocus;
   String? _lastShownMessage;
   bool _hasNavigatedToHome = false;
 
@@ -34,7 +39,7 @@ class _LoginPageState extends State<LoginPage>
 
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: animationDuration,
     );
 
     final curvedAnimation = CurvedAnimation(
@@ -47,6 +52,10 @@ class _LoginPageState extends State<LoginPage>
       begin: const Offset(0, 0.12),
       end: Offset.zero,
     ).animate(curvedAnimation);
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+    _emailFocus = FocusNode();
+    _passwordFocus = FocusNode();
 
     _animationController.forward();
   }
@@ -54,6 +63,10 @@ class _LoginPageState extends State<LoginPage>
   @override
   void dispose() {
     _animationController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     widget.bloc.dispose();
     super.dispose();
   }
@@ -66,61 +79,24 @@ class _LoginPageState extends State<LoginPage>
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: textSecondary),
-      prefixIcon: Icon(icon, color: textSecondary),
+      hintStyle: AppTextStyles.hint,
+      prefixIcon: Icon(icon, color: AppColors.textSecondary),
       suffixIcon: suffix,
       errorText: errorText,
       filled: true,
-      fillColor: fieldBackground,
-      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+      fillColor: AppColors.fieldBackground,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide.none,
-      ),
+
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: tiktokRed, width: 1.3),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.3),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: tiktokRed),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: tiktokRed, width: 1.3),
-      ),
-      errorStyle: const TextStyle(color: tiktokRed),
-    );
-  }
-
-  Widget _buildGlitchLogo() {
-    const textStyle = TextStyle(
-      fontSize: 54,
-      fontWeight: FontWeight.w800,
-      letterSpacing: 0.4,
-      color: textPrimary,
-      height: 1,
-    );
-
-    return SizedBox(
-      height: 72,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Transform.translate(
-            offset: const Offset(-2, 0),
-            child: Text('TikTok', style: textStyle.copyWith(color: tiktokCyan)),
-          ),
-          Transform.translate(
-            offset: const Offset(2, 0),
-            child: Text('TikTok', style: textStyle.copyWith(color: tiktokRed)),
-          ),
-          const Text('TikTok', style: textStyle),
-        ],
+        borderSide: const BorderSide(color: AppColors.primary),
       ),
     );
   }
@@ -128,7 +104,7 @@ class _LoginPageState extends State<LoginPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: StreamBuilder<LoginState>(
           initialData: widget.bloc.state,
@@ -137,27 +113,28 @@ class _LoginPageState extends State<LoginPage>
             final state = snapshot.data ?? const LoginState();
 
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted || state.message == null) {
-                return;
-              }
-              if (state.message == _lastShownMessage) {
-                return;
-              }
+              if (!mounted || state.message == null) return;
+              if (state.message == _lastShownMessage) return;
               _lastShownMessage = state.message;
 
               ScaffoldMessenger.of(context)
                 ..hideCurrentSnackBar()
                 ..showSnackBar(
                   SnackBar(
-                    content: Text(state.message!),
+                    backgroundColor: AppColors.error,
                     behavior: SnackBarBehavior.floating,
+                    content: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(state.message!)),
+                      ],
+                    ),
                   ),
                 );
             });
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted || _hasNavigatedToHome || !state.isLoggedIn) {
-                return;
-              }
+              if (!mounted || _hasNavigatedToHome || !state.isLoggedIn) return;
 
               _hasNavigatedToHome = true;
               Navigator.of(context).pushReplacement(
@@ -170,179 +147,155 @@ class _LoginPageState extends State<LoginPage>
               child: SlideTransition(
                 position: _slideAnimation,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 22,
-                    vertical: 12,
-                  ),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 30),
-                      _buildGlitchLogo(),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 40),
                       const Text(
-                        'Đăng nhập để tiếp tục khám phá video',
+                        AppStrings.appTitle,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: textSecondary, fontSize: 14),
-                      ),
-                      const SizedBox(height: 34),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0x221A9E55),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0x5533D17A)),
-                        ),
-                        child: const Text(
-                          'Tài khoản test: test@demo.com\nMật khẩu: 12345678',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12.5,
-                            height: 1.4,
-                          ),
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 8),
+                      const Text(
+                        AppStrings.loginSubtitle,
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.hint,
+                      ),
+                      const SizedBox(height: 24),
                       TextField(
+                        controller: _emailController,
+                        focusNode: _emailFocus,
+                        enabled: !state.isLoading,
+                        textInputAction: TextInputAction.next,
+                        keyboardType: TextInputType.emailAddress,
                         onChanged: (value) =>
                             widget.bloc.add(EmailChanged(value)),
-                        keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(color: textPrimary),
+                        onEditingComplete: () {
+                          widget.bloc.add(EmailChanged(_emailController.text));
+                          FocusScope.of(context).requestFocus(_passwordFocus);
+                        },
+                        style: AppTextStyles.body,
                         decoration: _inputDecoration(
-                          hint: 'Email hoặc Số điện thoại',
-                          icon: Icons.person_outline,
+                          hint: AppStrings.emailHint,
+                          icon: Icons.email_outlined,
                           errorText: state.emailError,
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextField(
+                        controller: _passwordController,
+                        focusNode: _passwordFocus,
+                        enabled: !state.isLoading,
+                        textInputAction: TextInputAction.done,
+                        obscureText: state.obscurePassword,
                         onChanged: (value) =>
                             widget.bloc.add(PasswordChanged(value)),
-                        obscureText: state.obscurePassword,
-                        style: const TextStyle(color: textPrimary),
+                        onEditingComplete: () =>
+                            widget.bloc.add(const LoginSubmitted()),
+                        style: AppTextStyles.body,
                         decoration: _inputDecoration(
-                          hint: 'Mật khẩu',
+                          hint: AppStrings.passwordHint,
                           icon: Icons.lock_outline,
                           errorText: state.passwordError,
                           suffix: IconButton(
-                            onPressed: () => widget.bloc.add(
-                              const PasswordVisibilityToggled(),
-                            ),
+                            onPressed: state.isLoading
+                                ? null
+                                : () => widget.bloc.add(
+                                    const PasswordVisibilityToggled(),
+                                  ),
                             icon: Icon(
                               state.obscurePassword
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
-                              color: textSecondary,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: state.passwordStrength,
+                        minHeight: 6,
+                        backgroundColor: Colors.white12,
+                        color: state.passwordStrength >= 0.75
+                            ? Colors.green
+                            : Colors.orange,
+                      ),
                       Row(
                         children: [
                           Checkbox(
                             value: state.rememberMe,
-                            onChanged: (value) => widget.bloc.add(
-                              RememberMeChanged(value ?? false),
-                            ),
-                            activeColor: tiktokRed,
-                            side: const BorderSide(color: textSecondary),
+                            onChanged: state.isLoading
+                                ? null
+                                : (value) => widget.bloc.add(
+                                    RememberMeChanged(value ?? false),
+                                  ),
                           ),
                           const Text(
                             'Ghi nhớ đăng nhập',
-                            style: TextStyle(color: textSecondary),
+                            style: AppTextStyles.hint,
                           ),
                           const Spacer(),
                           TextButton(
-                            onPressed: () {},
-                            child: const Text(
-                              'Quên mật khẩu?',
-                              style: TextStyle(
-                                color: tiktokRed,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            onPressed: state.isLoading
+                                ? null
+                                : () => widget.bloc.add(
+                                    const ForgotPasswordSubmitted(),
+                                  ),
+                            child: const Text(AppStrings.forgotPassword),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
-                        height: 50,
+                        height: 48,
                         child: ElevatedButton(
                           onPressed: state.isLoading
                               ? null
                               : () => widget.bloc.add(const LoginSubmitted()),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: tiktokRed,
-                            foregroundColor: textPrimary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
                           child: state.isLoading
                               ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
+                                  width: 20,
+                                  height: 20,
                                   child: CircularProgressIndicator(
-                                    strokeWidth: 2.3,
-                                    color: textPrimary,
+                                    strokeWidth: 2,
                                   ),
                                 )
                               : const Text(
-                                  'Đăng nhập',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  AppStrings.login,
+                                  style: AppTextStyles.button,
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       OutlinedButton.icon(
-                        onPressed: () =>
-                            widget.bloc.add(const GoogleLoginTapped()),
-                        icon: const Icon(Icons.g_mobiledata, size: 26),
-                        label: const Text(
-                          'Tiếp tục với Google',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: textPrimary,
-                          side: const BorderSide(color: Color(0xFF3D3D3D)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
+                        onPressed: state.isLoading
+                            ? null
+                            : () => widget.bloc.add(const GoogleLoginTapped()),
+                        icon: const Icon(Icons.g_mobiledata, size: 28),
+                        label: const Text(AppStrings.googleSignIn),
                       ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Text(
-                            'Chưa có tài khoản? ',
-                            style: TextStyle(color: textSecondary),
-                          ),
-                          Text(
-                            'Đăng ký',
-                            style: TextStyle(
-                              color: tiktokRed,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Bằng cách tiếp tục, bạn đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư của chúng tôi.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: textSecondary,
-                          fontSize: 11.5,
-                          height: 1.4,
+                      if (Platform.isIOS || Platform.isMacOS)
+                        OutlinedButton.icon(
+                          onPressed: state.isLoading
+                              ? null
+                              : () => widget.bloc.add(const AppleLoginTapped()),
+                          icon: const Icon(Icons.apple),
+                          label: const Text(AppStrings.appleSignIn),
                         ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: state.isLoading
+                            ? null
+                            : () => widget.bloc.add(const RegisterSubmitted()),
+                        child: const Text('Đăng ký tài khoản mới'),
                       ),
-                      const SizedBox(height: 12),
                     ],
                   ),
                 ),

@@ -1,6 +1,6 @@
 class LoginState {
   const LoginState({
-    this.emailOrPhone = '',
+    this.email = '',
     this.password = '',
     this.rememberMe = true,
     this.obscurePassword = true,
@@ -9,9 +9,10 @@ class LoginState {
     this.passwordError,
     this.message,
     this.isLoggedIn = false,
+    this.passwordStrength = 0,
   });
 
-  final String emailOrPhone;
+  final String email;
   final String password;
   final bool rememberMe;
   final bool obscurePassword;
@@ -20,10 +21,10 @@ class LoginState {
   final String? passwordError;
   final String? message;
   final bool isLoggedIn;
-
+  final double passwordStrength;
 
   LoginState copyWith({
-    String? emailOrPhone,
+    String? email,
     String? password,
     bool? rememberMe,
     bool? obscurePassword,
@@ -32,12 +33,13 @@ class LoginState {
     String? passwordError,
     String? message,
     bool? isLoggedIn,
+    double? passwordStrength,
     bool clearEmailError = false,
     bool clearPasswordError = false,
     bool clearMessage = false,
   }) {
     return LoginState(
-      emailOrPhone: emailOrPhone ?? this.emailOrPhone,
+      email: email ?? this.email,
       password: password ?? this.password,
       rememberMe: rememberMe ?? this.rememberMe,
       obscurePassword: obscurePassword ?? this.obscurePassword,
@@ -48,6 +50,7 @@ class LoginState {
           : passwordError ?? this.passwordError,
       message: clearMessage ? null : message ?? this.message,
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
+      passwordStrength: passwordStrength ?? this.passwordStrength,
     );
   }
 }

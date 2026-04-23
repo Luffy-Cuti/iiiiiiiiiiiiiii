@@ -31,3 +31,14 @@ class LoginSubmitted extends LoginEvent {
 class GoogleLoginTapped extends LoginEvent {
   const GoogleLoginTapped();
 }
+class AppleLoginTapped extends LoginEvent {
+  const AppleLoginTapped();
+}
+
+class ForgotPasswordSubmitted extends LoginEvent {
+  const ForgotPasswordSubmitted();
+}
+
+class RegisterSubmitted extends LoginEvent {
+  const RegisterSubmitted();
+}
