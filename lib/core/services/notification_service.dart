@@ -6,10 +6,14 @@ class NotificationService {
   static final NotificationService instance = NotificationService._();
 
   final FlutterLocalNotificationsPlugin _plugin =
-  FlutterLocalNotificationsPlugin();
+      FlutterLocalNotificationsPlugin();
+
+  static const _uploadNotificationId = 9001;
 
   Future<void> initialize() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const initializationSettings = InitializationSettings(
       android: androidSettings,
       iOS: DarwinInitializationSettings(),
@@ -34,10 +38,50 @@ class NotificationService {
     );
 
     await _plugin.show(
-      9001,
-      'Uploading video',
-      '$progress% complete',
+      _uploadNotificationId,
+      'Đang upload video... $progress%',
+      'Tiến trình đăng video đang chạy nền.',
       details,
     );
+  }
+
+  Future<void> showUploadSuccess() async {
+    await _plugin.show(
+      _uploadNotificationId,
+      '✅ Video đã được đăng thành công!',
+      'Nhấn để xem video mới đăng.',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'upload_result',
+          'Upload Result',
+          channelDescription: 'Shows upload result',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+    );
+  }
+
+  Future<void> showUploadFailure() async {
+    await _plugin.show(
+      _uploadNotificationId,
+      '❌ Upload thất bại. Nhấn để thử lại',
+      'Vui lòng kiểm tra lại thông tin video.',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'upload_result',
+          'Upload Result',
+          channelDescription: 'Shows upload result',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+    );
+  }
+
+  Future<void> showUploadCancelled() async {
+    await _plugin.cancel(_uploadNotificationId);
   }
 }

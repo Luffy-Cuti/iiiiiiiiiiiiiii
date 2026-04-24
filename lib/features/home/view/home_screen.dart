@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../auth/bloc/login_bloc.dart';
 import '../../auth/services/auth_local_storage.dart';
 import '../../auth/view/login_page.dart';
+import '../../upload/view/upload_video_page.dart';
 
 import '../../upload/bloc/upload_bloc.dart';
 import '../bloc/video_bloc.dart';
@@ -36,12 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onNavTap(int index) {
     setState(() => _bottomIndex = index);
-    if (index == 2) {
-      context.read<UploadBloc>().add(const StartUpload());
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đang upload video...')),
-      );
-    }
+
   }
   Future<void> _handleSignOut() async {
     await AuthLocalStorage.clearLoginStatus();
@@ -69,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_bottomIndex == 2) {
-      return const _SimpleTabPage(title: 'Upload đang chạy nền...');
+      return const UploadVideoPage();
     }
 
     if (_bottomIndex == 3) {

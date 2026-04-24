@@ -39,6 +39,7 @@ Future<void> main() async {
   );
   runApp(const MyApp());
 }
+
 Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp();
@@ -51,14 +52,11 @@ Future<void> _initFirebase() async {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
-  } catch (_) {
-
-  }
+  } catch (_) {}
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +64,7 @@ class MyApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => VideoBloc()),
-        BlocProvider(create: (_) => UploadBloc()),
+        BlocProvider(create: (_) => UploadVideoBloc()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -79,9 +77,7 @@ class MyApp extends StatelessWidget {
           authRepository: authRepository,
           loginBlocFactory: () => LoginBloc(authRepository: authRepository),
         ),
-
       ),
-
     );
   }
 }
