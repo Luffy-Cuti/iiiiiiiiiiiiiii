@@ -65,7 +65,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_bottomIndex == 2) {
-      return const UploadVideoPage();
+      return UploadVideoPage(
+        onUploaded: () {
+          if (!mounted) return;
+          setState(() => _bottomIndex = 0);
+        },
+      );
     }
 
     if (_bottomIndex == 3) {

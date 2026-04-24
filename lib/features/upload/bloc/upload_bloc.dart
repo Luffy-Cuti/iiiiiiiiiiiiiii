@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/services/notification_service.dart';
+import '../../home/repository/video_repository.dart';
+import '../repository/upload_repository.dart';
 
 enum VideoVisibility { public, private, friendsOnly }
 
@@ -124,16 +127,16 @@ abstract class UploadVideoState {
 
 class UploadInitial extends UploadVideoState {
   const UploadInitial()
-      : super(
-    video: null,
-    title: '',
-    description: '',
-    categoryId: '',
-    visibility: VideoVisibility.public,
-    allowComment: true,
-    allowDuet: true,
-    thumbnailTimestamp: Duration.zero,
-  );
+    : super(
+        video: null,
+        title: '',
+        description: '',
+        categoryId: '',
+        visibility: VideoVisibility.public,
+        allowComment: true,
+        allowDuet: true,
+        thumbnailTimestamp: Duration.zero,
+      );
 }
 
 class UploadVideoPickedState extends UploadVideoState {
@@ -237,7 +240,12 @@ class UploadCancelledState extends UploadVideoState {
 }
 
 class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
-  UploadVideoBloc() : super(const UploadInitial()) {
+  UploadVideoBloc({
+    required UploadRepository uploadRepository,
+    required VideoRepository videoRepository,
+  }) : _uploadRepository = uploadRepository,
+       _videoRepository = videoRepository,
+       super(const UploadInitial()) {
     on<PickVideoEvent>(_onPickVideo);
     on<ValidateVideoEvent>(_onValidateVideo);
     on<UpdateUploadFormEvent>(_onUpdateForm);
@@ -248,17 +256,19 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
     on<_UploadTickEvent>(_onUploadTick);
   }
 
+  final UploadRepository _uploadRepository;
+  final VideoRepository _videoRepository;
+
   static const _maxVideoSizeBytes = 500 * 1024 * 1024;
   static const _minVideoDuration = Duration(seconds: 15);
   static const _maxVideoDuration = Duration(minutes: 10);
 
-  Timer? _uploadTimer;
   int _lastProgress = 0;
 
   Future<void> _onPickVideo(
-      PickVideoEvent event,
-      Emitter<UploadVideoState> emit,
-      ) async {
+    PickVideoEvent event,
+    Emitter<UploadVideoState> emit,
+  ) async {
     try {
       final picked = await _toPickedVideo(event.file);
       emit(_pickedState(video: picked));
@@ -275,9 +285,9 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
   }
 
   Future<void> _onUpdateForm(
-      UpdateUploadFormEvent event,
-      Emitter<UploadVideoState> emit,
-      ) async {
+    UpdateUploadFormEvent event,
+    Emitter<UploadVideoState> emit,
+  ) async {
     emit(
       UploadVideoPickedState(
         video: state.video,
@@ -287,15 +297,16 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
         visibility: event.visibility ?? state.visibility,
         allowComment: event.allowComment ?? state.allowComment,
         allowDuet: event.allowDuet ?? state.allowDuet,
-        thumbnailTimestamp: event.thumbnailTimestamp ?? state.thumbnailTimestamp,
+        thumbnailTimestamp:
+            event.thumbnailTimestamp ?? state.thumbnailTimestamp,
       ),
     );
   }
 
   Future<void> _onValidateVideo(
-      ValidateVideoEvent event,
-      Emitter<UploadVideoState> emit,
-      ) async {
+    ValidateVideoEvent event,
+    Emitter<UploadVideoState> emit,
+  ) async {
     emit(_validatingState());
 
     final validationError = _validateAll();
@@ -325,9 +336,9 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
   }
 
   Future<void> _onStartUpload(
-      StartUploadEvent event,
-      Emitter<UploadVideoState> emit,
-      ) async {
+    StartUploadEvent event,
+    Emitter<UploadVideoState> emit,
+  ) async {
     final validationError = _validateAll();
     if (validationError != null) {
       emit(_failureState(validationError));
@@ -342,70 +353,83 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
 
     await _setCrashlyticsKeys(userId: event.userId, video: video);
 
-    _uploadTimer?.cancel();
     _lastProgress = 0;
     emit(_progressState(progress: 0));
     await NotificationService.instance.showUploadProgress(0);
 
-    _uploadTimer = Timer.periodic(const Duration(milliseconds: 400), (timer) {
-      _lastProgress += 5;
-      add(_UploadTickEvent(progress: _lastProgress));
-      if (_lastProgress >= 100) {
-        timer.cancel();
-      }
-    });
-  }
-
-  Future<void> _onUploadTick(
-      _UploadTickEvent event,
-      Emitter<UploadVideoState> emit,
-      ) async {
-    final clamped = event.progress.clamp(0, 100);
     try {
-      emit(_progressState(progress: clamped));
-      await NotificationService.instance.showUploadProgress(clamped);
+      final uploadUserId = event.userId == 'guest' ? 'anonymous' : event.userId;
+      final downloadUrl = await _uploadRepository.uploadVideo(
+        file: video.file,
+        userId: uploadUserId,
+        fileName: video.fileName,
+        onProgress: (progress) => add(_UploadTickEvent(progress: progress)),
+      );
 
-      if (clamped >= 100) {
-        final videoId = 'vid_${DateTime.now().millisecondsSinceEpoch}';
-        await NotificationService.instance.showUploadSuccess();
-        emit(
-          UploadSuccessState(
-            videoId: videoId,
-            video: state.video,
-            title: state.title,
-            description: state.description,
-            categoryId: state.categoryId,
-            visibility: state.visibility,
-            allowComment: state.allowComment,
-            allowDuet: state.allowDuet,
-            thumbnailTimestamp: state.thumbnailTimestamp,
-          ),
-        );
-      }
+      final user = FirebaseAuth.instance.currentUser;
+      final username = (user?.displayName?.trim().isNotEmpty ?? false)
+          ? user!.displayName!.trim()
+          : (user?.email?.split('@').first ?? 'user_$uploadUserId');
+
+      final videoId = await _videoRepository.createVideoDocument(
+        videoUrl: downloadUrl,
+        description: state.description,
+        title: state.title.trim(),
+        categoryId: state.categoryId,
+        userId: uploadUserId,
+        username: username,
+        avatarUrl: user?.photoURL ?? '',
+        visibility: state.visibility.name,
+        allowComment: state.allowComment,
+        allowDuet: state.allowDuet,
+      );
+
+      await NotificationService.instance.showUploadSuccess();
+      emit(
+        UploadSuccessState(
+          videoId: videoId,
+          video: state.video,
+          title: state.title,
+          description: state.description,
+          categoryId: state.categoryId,
+          visibility: state.visibility,
+          allowComment: state.allowComment,
+          allowDuet: state.allowDuet,
+          thumbnailTimestamp: state.thumbnailTimestamp,
+        ),
+      );
     } catch (error, stack) {
       await FirebaseCrashlytics.instance.recordError(
         error,
         stack,
-        reason: 'upload_tick_failed',
-        fatal: true,
+        reason: 'upload_failed',
+        fatal: false,
       );
-      emit(_failureState('Upload thất bại do lỗi hệ thống.'));
+      emit(_failureState('Upload thất bại. Vui lòng thử lại.'));
     }
   }
 
+  Future<void> _onUploadTick(
+    _UploadTickEvent event,
+    Emitter<UploadVideoState> emit,
+  ) async {
+    final clamped = event.progress.clamp(0, 100);
+    _lastProgress = clamped;
+    emit(_progressState(progress: clamped));
+    await NotificationService.instance.showUploadProgress(clamped);
+  }
+
   Future<void> _onPauseUpload(
-      PauseUploadEvent event,
-      Emitter<UploadVideoState> emit,
-      ) async {
-    _uploadTimer?.cancel();
+    PauseUploadEvent event,
+    Emitter<UploadVideoState> emit,
+  ) async {
     emit(_pickedState());
   }
 
   Future<void> _onCancelUpload(
-      CancelUploadEvent event,
-      Emitter<UploadVideoState> emit,
-      ) async {
-    _uploadTimer?.cancel();
+    CancelUploadEvent event,
+    Emitter<UploadVideoState> emit,
+  ) async {
     _lastProgress = 0;
     await NotificationService.instance.showUploadCancelled();
     emit(
@@ -423,9 +447,9 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
   }
 
   Future<void> _onRetryUpload(
-      RetryUploadEvent event,
-      Emitter<UploadVideoState> emit,
-      ) async {
+    RetryUploadEvent event,
+    Emitter<UploadVideoState> emit,
+  ) async {
     add(const StartUploadEvent(userId: 'retry_user'));
   }
 
@@ -494,7 +518,8 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
       return 'Dung lượng video tối đa 500MB.';
     }
 
-    if (video.duration < _minVideoDuration || video.duration > _maxVideoDuration) {
+    if (video.duration < _minVideoDuration ||
+        video.duration > _maxVideoDuration) {
       return 'Thời lượng video phải từ 15 giây đến 10 phút.';
     }
 
@@ -515,11 +540,18 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
     required PickedVideo video,
   }) async {
     await FirebaseCrashlytics.instance.setCustomKey('userId', userId);
-    await FirebaseCrashlytics.instance
-        .setCustomKey('videoSize', video.fileSizeInBytes);
-    await FirebaseCrashlytics.instance
-        .setCustomKey('videoDuration', video.duration.inSeconds);
-    await FirebaseCrashlytics.instance.setCustomKey('categoryId', state.categoryId);
+    await FirebaseCrashlytics.instance.setCustomKey(
+      'videoSize',
+      video.fileSizeInBytes,
+    );
+    await FirebaseCrashlytics.instance.setCustomKey(
+      'videoDuration',
+      video.duration.inSeconds,
+    );
+    await FirebaseCrashlytics.instance.setCustomKey(
+      'categoryId',
+      state.categoryId,
+    );
   }
 
   Future<PickedVideo> _toPickedVideo(File file) async {
@@ -540,11 +572,5 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
       duration: duration,
       thumbnailTimestamp: Duration.zero,
     );
-  }
-
-  @override
-  Future<void> close() {
-    _uploadTimer?.cancel();
-    return super.close();
   }
 }

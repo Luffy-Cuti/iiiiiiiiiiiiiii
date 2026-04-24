@@ -3,13 +3,18 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../home/bloc/video_bloc.dart';
+import '../../home/bloc/video_event.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 import '../bloc/upload_bloc.dart';
 
 class UploadVideoPage extends StatefulWidget {
-  const UploadVideoPage({super.key});
+  const UploadVideoPage({super.key, this.onUploaded});
+
+  final VoidCallback? onUploaded;
 
   @override
   State<UploadVideoPage> createState() => _UploadVideoPageState();
@@ -92,6 +97,8 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
           );
         }
         if (state is UploadSuccessState) {
+          context.read<VideoBloc>().add(const FetchVideos());
+          widget.onUploaded?.call();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Upload thành công: ${state.videoId}')),
           );
