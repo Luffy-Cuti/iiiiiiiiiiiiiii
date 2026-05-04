@@ -22,34 +22,19 @@ class VideoRepository {
         queryParameters: {
           'page': '0',
           'size': '20',
-          'msisdn': 'test_user',
+          'msisdn': '',
           'timestamp': timestamp,
-          'security': 'test_security',
+          'security': '',
           'lastHashId': '',
         },
       );
 
       final videos = _extractVideoList(response.body);
-
-      if (videos.isNotEmpty) {
-        return videos;
-      }
-
-      throw Exception("API trả về rỗng");
+      return videos;
     } catch (e) {
       print("API ERROR: $e");
 
-      try {
-        final snapshot = await _firestore
-            .collection('videos')
-            .orderBy('createdAt', descending: true)
-            .get();
-
-        return snapshot.docs.map((doc) => _toVideoModel(doc)).toList();
-      } catch (e2) {
-        print("FIRESTORE ERROR: $e2");
-        return [];
-      }
+      return [];
     }
   }
 

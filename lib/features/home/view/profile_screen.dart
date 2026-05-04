@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({required this.onSignOut, super.key});
 
@@ -17,9 +17,32 @@ class _ProfileScreenState extends State<ProfileScreen>
   static const Color _subText = Color(0xFF888888);
   static const Color _accent = Color(0xFFFE2C55);
 
-  final String username = '@creator.name';
-  final String displayName = 'Creator Name';
-  final String bio = 'Content creator ✨ | Daily videos | Business: email@gmail.com';
+  User? get _user => FirebaseAuth.instance.currentUser;
+
+  String get username {
+    final email = _user?.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      final localPart = email.split('@').first;
+      return '@$localPart';
+    }
+    return '@user';
+  }
+
+  String get displayName {
+    final name = _user?.displayName?.trim();
+    if (name != null && name.isNotEmpty) {
+      return name;
+    }
+    return _user?.email?.trim() ?? 'User';
+  }
+
+  String get bio {
+    final email = _user?.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      return 'Email: $email';
+    }
+    return 'Hoàn thiện hồ sơ để người khác dễ nhận diện bạn.';
+  }
   final String following = '512';
   final String followers = '2.3M';
   final String likes = '45.6M';
@@ -184,6 +207,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildAvatar() {
+    final photoUrl = _user?.photoURL;
+    final hasPhoto = photoUrl != null && photoUrl.trim().isNotEmpty;
     return Stack(
       alignment: Alignment.bottomCenter,
       clipBehavior: Clip.none,
@@ -197,11 +222,19 @@ class _ProfileScreenState extends State<ProfileScreen>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: _text, width: 2),
-              gradient: const LinearGradient(
+              gradient: hasPhoto
+                  ? null
+                  : const LinearGradient(
                 colors: [Color(0xFF1F1F1F), Color(0xFF3A3A3A)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
+              image: hasPhoto
+                  ? DecorationImage(
+                image: NetworkImage(photoUrl!),
+                fit: BoxFit.cover,
+              )
+                  : null,
             ),
             child: const Icon(Icons.person, color: _text, size: 44),
           ),
@@ -212,7 +245,9 @@ class _ProfileScreenState extends State<ProfileScreen>
             width: 24,
             height: 24,
             decoration: const BoxDecoration(color: _accent, shape: BoxShape.circle),
-            child: const Icon(Icons.add, size: 16, color: _text),
+            child: hasPhoto
+                ? null
+                : const Icon(Icons.person, color: _text, size: 44),
           ),
         ),
       ],
