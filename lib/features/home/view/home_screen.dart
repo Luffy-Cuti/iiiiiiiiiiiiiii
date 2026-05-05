@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../auth/bloc/login_bloc.dart';
 import '../../auth/services/auth_local_storage.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:video_player/video_player.dart';
 import '../../auth/view/login_page.dart';
 import '../../upload/view/upload_video_page.dart';
 
@@ -21,8 +23,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final PageController _pageController = PageController();
+  final Map<int, VideoPlayerController> _videoControllers = {};
+  final Set<int> _loadingIndexes = {};
   int _bottomIndex = 0;
-
+  int _currentVideoIndex = 0;
   @override
   void initState() {
     super.initState();
@@ -31,8 +35,73 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
     _pageController.dispose();
     super.dispose();
+  }
+  Future<void> _prepareVideoWindow(VideoLoaded state, int activeIndex) async {
+    _currentVideoIndex = activeIndex;
+    final candidates = <int>{
+      if (activeIndex - 1 >= 0) activeIndex - 1,
+      activeIndex,
+      if (activeIndex + 1 < state.videos.length) activeIndex + 1,
+    };
+
+    for (final index in candidates) {
+      await _initializeController(state, index, shouldPlay: index == activeIndex);
+    }
+
+    final toDispose = _videoControllers.keys
+        .where((index) => !candidates.contains(index))
+        .toList();
+    for (final index in toDispose) {
+      await _videoControllers.remove(index)?.dispose();
+    }
+  }
+
+  Future<void> _initializeController(
+      VideoLoaded state,
+      int index, {
+        required bool shouldPlay,
+      }) async {
+    final existing = _videoControllers[index];
+    if (existing != null) {
+      if (shouldPlay) {
+        await existing.play();
+      } else {
+        await existing.pause();
+      }
+      return;
+    }
+    if (_loadingIndexes.contains(index)) return;
+
+    _loadingIndexes.add(index);
+    try {
+      final videoUrl = state.videos[index].videoUrl;
+      final file = await DefaultCacheManager().getSingleFile(videoUrl);
+      final controller = VideoPlayerController.file(file);
+      await controller.initialize();
+      controller.setLooping(true);
+
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+
+      _videoControllers[index] = controller;
+      if (shouldPlay) {
+        await controller.play();
+      } else {
+        await controller.pause();
+      }
+      if (mounted) setState(() {});
+    } catch (_) {
+
+    } finally {
+      _loadingIndexes.remove(index);
+    }
   }
 
   void _onNavTap(int index) {
@@ -88,16 +157,26 @@ class _HomeScreenState extends State<HomeScreen> {
               return Center(child: Text(state.message));
             }
             if (state is! VideoLoaded) return const SizedBox.shrink();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _prepareVideoWindow(state, _currentVideoIndex);
+            });
 
             return PageView.builder(
               controller: _pageController,
               scrollDirection: Axis.vertical,
               itemCount: state.videos.length,
+              onPageChanged: (index) {
+                _prepareVideoWindow(state, index);
+                setState(() => _currentVideoIndex = index);
+              },
               itemBuilder: (context, index) {
                 final video = state.videos[index];
                 return VideoPlayerWidget(
                   key: ValueKey(video.id),
                   video: video,
+                  videoController: _videoControllers[index],
+                  isActive: index == _currentVideoIndex,
                   onLike: () => context.read<VideoBloc>().add(LikeVideo(video.id)),
                   onFollow: () =>
                       context.read<VideoBloc>().add(FollowChannel(video.channel.id)),

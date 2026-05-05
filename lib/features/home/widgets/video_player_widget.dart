@@ -11,12 +11,16 @@ class VideoPlayerWidget extends StatefulWidget {
   const VideoPlayerWidget({
     super.key,
     required this.video,
+    required this.videoController,
+    required this.isActive,
     required this.onLike,
     required this.onFollow,
   });
 
   final VideoModel video;
   final VoidCallback onLike;
+  final VideoPlayerController? videoController;
+  final bool isActive;
   final VoidCallback onFollow;
 
   @override
@@ -25,7 +29,6 @@ class VideoPlayerWidget extends StatefulWidget {
 
 class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
     with TickerProviderStateMixin {
-  VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   late final AnimationController _discController;
   late final AnimationController _heartController;
@@ -48,54 +51,57 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
       parent: _heartController,
       curve: Curves.elasticOut,
     );
-    _initVideo();
-  }
-
-  Future<void> _initVideo() async {
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(widget.video.videoUrl),
-    );
-    await controller.initialize();
-    final chewie = ChewieController(
-      videoPlayerController: controller,
-      autoPlay: true,
-      looping: true,
-      showControls: false,
-      allowFullScreen: false,
-      allowMuting: false,
-    );
-
-    if (!mounted) {
-      await controller.dispose();
-      chewie.dispose();
-      return;
-    }
-
-    setState(() {
-      _videoController = controller;
-      _chewieController = chewie;
-    });
+    _syncChewieController();
   }
 
   @override
   void didUpdateWidget(covariant VideoPlayerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.video.videoUrl != widget.video.videoUrl) {
-      _disposeVideo();
-      _initVideo();
+    if (oldWidget.videoController != widget.videoController ||
+        oldWidget.isActive != widget.isActive) {
+      _syncChewieController();
     }
   }
 
-  void _disposeVideo() {
+  void _disposeChewie() {
     _chewieController?.dispose();
-    _videoController?.dispose();
+
     _chewieController = null;
-    _videoController = null;
+  }
+
+  void _syncChewieController() {
+    final controller = widget.videoController;
+    if (controller == null || !controller.value.isInitialized) {
+      _disposeChewie();
+      if (mounted) setState(() {});
+      return;
+    }
+
+    final current = _chewieController;
+    if (current?.videoPlayerController != controller) {
+      _disposeChewie();
+      _chewieController = ChewieController(
+        videoPlayerController: controller,
+        autoPlay: false,
+        looping: true,
+        showControls: false,
+        allowFullScreen: false,
+        allowMuting: false,
+      );
+    }
+
+    if (widget.isActive) {
+      controller.play();
+    } else {
+      controller.pause();
+    }
+
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _disposeVideo();
+    _disposeChewie();
     _discController.dispose();
     _heartController.dispose();
     super.dispose();
@@ -109,7 +115,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   }
 
   void _togglePlay() {
-    final controller = _videoController;
+    final controller = widget.videoController;
     if (controller == null) return;
     if (controller.value.isPlaying) {
       controller.pause();
@@ -131,9 +137,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
           onDoubleTap: _handleDoubleTap,
           child: chewie == null
               ? CachedNetworkImage(
-            imageUrl: widget.video.thumbnailUrl,
-            fit: BoxFit.cover,
-          )
+                  imageUrl: widget.video.thumbnailUrl,
+                  fit: BoxFit.cover,
+                )
               : Chewie(controller: chewie),
         ),
         IgnorePointer(
@@ -206,7 +212,9 @@ class _RightActions extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundImage: CachedNetworkImageProvider(video.channel.avatarUrl),
+              backgroundImage: CachedNetworkImageProvider(
+                video.channel.avatarUrl,
+              ),
             ),
             Positioned(
               bottom: -8,
@@ -351,7 +359,10 @@ class _BottomMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final descStyle = const TextStyle(fontSize: 13, shadows: [Shadow(blurRadius: 2)]);
+    final descStyle = const TextStyle(
+      fontSize: 13,
+      shadows: [Shadow(blurRadius: 2)],
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,10 +391,7 @@ class _BottomMeta extends StatelessWidget {
           style: const TextStyle(fontSize: 12, color: Colors.white70),
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 18,
-          child: _MarqueeMusic(text: '♪ ${video.music}'),
-        ),
+        SizedBox(height: 18, child: _MarqueeMusic(text: '♪ ${video.music}')),
       ],
     );
   }
@@ -436,7 +444,10 @@ class _MarqueeMusicState extends State<_MarqueeMusic>
             widget.text,
             maxLines: 1,
             overflow: TextOverflow.visible,
-            style: const TextStyle(fontSize: 12, shadows: [Shadow(blurRadius: 2)]),
+            style: const TextStyle(
+              fontSize: 12,
+              shadows: [Shadow(blurRadius: 2)],
+            ),
           ),
         );
       },
