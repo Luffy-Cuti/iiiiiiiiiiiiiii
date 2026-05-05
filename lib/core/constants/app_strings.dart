@@ -17,5 +17,6 @@ class AppStrings {
   static const String verifyEmailFirst =
       'Vui lòng xác thực email trước khi đăng nhập';
   static const String resetSent = 'Email reset mật khẩu đã được gửi';
-  static const String registerSuccess = 'Đăng ký thành công, hãy xác thực email';
+  static const String registerSuccess =
+      'Đăng ký thành công, hãy xác thực email';
 }

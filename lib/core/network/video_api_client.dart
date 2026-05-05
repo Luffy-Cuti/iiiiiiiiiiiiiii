@@ -6,7 +6,11 @@ class VideoApiClient {
   VideoApiClient({
     http.Client? httpClient,
     this.baseUrl = 'https://timordev.ringme.vn',
-    this.defaultHeaders = const {'Client-Type': 'Android', 'sec-api': '123','Accept-Language': 'vi',},
+    this.defaultHeaders = const {
+      'Client-Type': 'Android',
+      'sec-api': '123',
+      'Accept-Language': 'vi',
+    },
   }) : _httpClient = httpClient ?? http.Client();
 
   final http.Client _httpClient;
@@ -15,16 +19,16 @@ class VideoApiClient {
 
   Uri _buildUri(String path, Map<String, String>? queryParameters) {
     final normalizedPath = path.startsWith('/') ? path : '/$path';
-    return Uri.parse('$baseUrl$normalizedPath').replace(
-      queryParameters: queryParameters,
-    );
+    return Uri.parse(
+      '$baseUrl$normalizedPath',
+    ).replace(queryParameters: queryParameters);
   }
 
   Future<http.Response> get(
-      String path, {
-        Map<String, String>? queryParameters,
-        Map<String, String>? headers,
-      }) async {
+    String path, {
+    Map<String, String>? queryParameters,
+    Map<String, String>? headers,
+  }) async {
     final response = await _httpClient.get(
       _buildUri(path, queryParameters),
       headers: {...defaultHeaders, ...?headers},
@@ -34,11 +38,11 @@ class VideoApiClient {
   }
 
   Future<http.Response> post(
-      String path, {
-        Map<String, dynamic>? body,
-        Map<String, String>? queryParameters,
-        Map<String, String>? headers,
-      }) async {
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? queryParameters,
+    Map<String, String>? headers,
+  }) async {
     final response = await _httpClient.post(
       _buildUri(path, queryParameters),
       headers: {
@@ -67,5 +71,6 @@ class VideoApiException implements Exception {
   final String message;
 
   @override
-  String toString() => 'VideoApiException(status: $statusCode, message: $message)';
+  String toString() =>
+      'VideoApiException(status: $statusCode, message: $message)';
 }
