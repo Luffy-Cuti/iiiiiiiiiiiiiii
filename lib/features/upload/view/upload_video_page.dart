@@ -1,14 +1,11 @@
 import 'dart:io';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../home/bloc/video_bloc.dart';
 import '../../home/bloc/video_event.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
-
 import '../bloc/upload_bloc.dart';
 
 class UploadVideoPage extends StatefulWidget {
@@ -92,9 +89,9 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
     return BlocConsumer<UploadVideoBloc, UploadVideoState>(
       listener: (context, state) {
         if (state is UploadFailureState) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
         if (state is UploadSuccessState) {
           context.read<VideoBloc>().add(const FetchVideos());
@@ -116,19 +113,21 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
               TextButton(
                 onPressed: canSubmit
                     ? () {
-                  context.read<UploadVideoBloc>().add(
-                    StartUploadEvent(
-                      userId: FirebaseAuth.instance.currentUser?.uid ?? 'guest',
-                    ),
-                  );
-                }
+                        context.read<UploadVideoBloc>().add(
+                          StartUploadEvent(
+                            userId:
+                                FirebaseAuth.instance.currentUser?.uid ??
+                                'guest',
+                          ),
+                        );
+                      }
                     : null,
                 child: isUploading
                     ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Text('Đăng'),
               ),
             ],
@@ -145,9 +144,9 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                   hintText: 'Tiêu đề...',
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (value) => context
-                    .read<UploadVideoBloc>()
-                    .add(UpdateUploadFormEvent(title: value)),
+                onChanged: (value) => context.read<UploadVideoBloc>().add(
+                  UpdateUploadFormEvent(title: value),
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -159,9 +158,9 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                   hintText: 'Thêm mô tả, hashtag #... ',
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (value) => context
-                    .read<UploadVideoBloc>()
-                    .add(UpdateUploadFormEvent(description: value)),
+                onChanged: (value) => context.read<UploadVideoBloc>().add(
+                  UpdateUploadFormEvent(description: value),
+                ),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -171,9 +170,9 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                   border: OutlineInputBorder(),
                 ),
                 items: _categoryItems,
-                onChanged: (value) => context
-                    .read<UploadVideoBloc>()
-                    .add(UpdateUploadFormEvent(categoryId: value ?? '')),
+                onChanged: (value) => context.read<UploadVideoBloc>().add(
+                  UpdateUploadFormEvent(categoryId: value ?? ''),
+                ),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<VideoVisibility>(
@@ -198,9 +197,9 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                 ],
                 onChanged: (value) {
                   if (value == null) return;
-                  context
-                      .read<UploadVideoBloc>()
-                      .add(UpdateUploadFormEvent(visibility: value));
+                  context.read<UploadVideoBloc>().add(
+                    UpdateUploadFormEvent(visibility: value),
+                  );
                 },
               ),
               const SizedBox(height: 8),
@@ -208,32 +207,30 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Cho phép bình luận'),
                 value: state.allowComment,
-                onChanged: (value) => context
-                    .read<UploadVideoBloc>()
-                    .add(UpdateUploadFormEvent(allowComment: value)),
+                onChanged: (value) => context.read<UploadVideoBloc>().add(
+                  UpdateUploadFormEvent(allowComment: value),
+                ),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Cho phép Duet / Stitch'),
                 value: state.allowDuet,
-                onChanged: (value) => context
-                    .read<UploadVideoBloc>()
-                    .add(UpdateUploadFormEvent(allowDuet: value)),
+                onChanged: (value) => context.read<UploadVideoBloc>().add(
+                  UpdateUploadFormEvent(allowDuet: value),
+                ),
               ),
               if (isUploading) ...[
                 const SizedBox(height: 12),
-                LinearProgressIndicator(
-                  value: uploadState!.progress / 100,
-                ),
+                LinearProgressIndicator(value: uploadState!.progress / 100),
                 const SizedBox(height: 6),
                 Text('Đang upload... ${uploadState!.progress}%'),
               ],
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: isUploading
-                    ? () => context
-                    .read<UploadVideoBloc>()
-                    .add(const CancelUploadEvent())
+                    ? () => context.read<UploadVideoBloc>().add(
+                        const CancelUploadEvent(),
+                      )
                     : null,
                 icon: const Icon(Icons.close),
                 label: const Text('Huỷ'),
@@ -258,82 +255,84 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
         onTap: _showPickOptions,
         child: state.video == null
             ? const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.video_call_outlined, size: 42),
-              SizedBox(height: 8),
-              Text('Chọn video (thư viện / camera)'),
-            ],
-          ),
-        )
-            : Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (_previewController != null &&
-                        _previewController!.value.isInitialized)
-                      FittedBox(
-                        fit: BoxFit.cover,
-                        child: SizedBox(
-                          width: _previewController!.value.size.width,
-                          height: _previewController!.value.size.height,
-                          child: VideoPlayer(_previewController!),
-                        ),
-                      )
-                    else
-                      const ColoredBox(color: Colors.black26),
-                    Center(
-                      child: CircleAvatar(
-                        radius: 22,
-                        backgroundColor: Colors.black54,
-                        child: IconButton(
-                          onPressed: () {
-                            if (_previewController == null) return;
-                            setState(() {
-                              if (_previewController!.value.isPlaying) {
-                                _previewController!.pause();
-                              } else {
-                                _previewController!.play();
-                              }
-                            });
-                          },
-                          icon: Icon(
-                            _previewController?.value.isPlaying == true
-                                ? Icons.pause
-                                : Icons.play_arrow,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: FilledButton.tonalIcon(
-                        onPressed: _showPickOptions,
-                        icon: const Icon(Icons.photo_camera_back_outlined),
-                        label: const Text('Chọn ảnh bìa'),
-                      ),
-                    ),
+                    Icon(Icons.video_call_outlined, size: 42),
+                    SizedBox(height: 8),
+                    Text('Chọn video (thư viện / camera)'),
                   ],
                 ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (_previewController != null &&
+                              _previewController!.value.isInitialized)
+                            FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: _previewController!.value.size.width,
+                                height: _previewController!.value.size.height,
+                                child: VideoPlayer(_previewController!),
+                              ),
+                            )
+                          else
+                            const ColoredBox(color: Colors.black26),
+                          Center(
+                            child: CircleAvatar(
+                              radius: 22,
+                              backgroundColor: Colors.black54,
+                              child: IconButton(
+                                onPressed: () {
+                                  if (_previewController == null) return;
+                                  setState(() {
+                                    if (_previewController!.value.isPlaying) {
+                                      _previewController!.pause();
+                                    } else {
+                                      _previewController!.play();
+                                    }
+                                  });
+                                },
+                                icon: Icon(
+                                  _previewController?.value.isPlaying == true
+                                      ? Icons.pause
+                                      : Icons.play_arrow,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: FilledButton.tonalIcon(
+                              onPressed: _showPickOptions,
+                              icon: const Icon(
+                                Icons.photo_camera_back_outlined,
+                              ),
+                              label: const Text('Chọn ảnh bìa'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      '${state.video!.fileName} • ${state.video!.formattedSize} • ${state.video!.formattedDuration}',
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                '${state.video!.fileName} • ${state.video!.formattedSize} • ${state.video!.formattedDuration}',
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

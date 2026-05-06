@@ -64,6 +64,7 @@ class VideoApiClient {
   }
 }
 
+
 class VideoApiException implements Exception {
   VideoApiException(this.statusCode, this.message);
 
