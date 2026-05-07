@@ -9,15 +9,19 @@ import 'video_state.dart';
 
 class VideoBloc extends Bloc<VideoEvent, VideoState> {
   VideoBloc({required VideoRepository videoRepository})
-      : _videoRepository = videoRepository,
-        super(const VideoLoading()) {
+    : _videoRepository = videoRepository,
+      super(const VideoLoading()) {
     on<FetchVideos>(_onFetchVideos);
     on<LikeVideo>(_onLikeVideo);
     on<FollowChannel>(_onFollowChannel);
   }
+
   final VideoRepository _videoRepository;
 
-  Future<void> _onFetchVideos(FetchVideos event, Emitter<VideoState> emit) async {
+  Future<void> _onFetchVideos(
+    FetchVideos event,
+    Emitter<VideoState> emit,
+  ) async {
     emit(const VideoLoading());
     try {
       final videos = await _videoRepository.fetchVideos();
@@ -56,6 +60,7 @@ class VideoBloc extends Bloc<VideoEvent, VideoState> {
     final updated = current.videos.map((video) {
       if (video.channel.id != event.channelId) return video;
       final followed = !video.isFollowed;
+
       return video.copyWith(
         isFollowed: followed,
         channel: video.channel.copyWith(isFollowed: followed),
@@ -65,4 +70,3 @@ class VideoBloc extends Bloc<VideoEvent, VideoState> {
     emit(VideoLoaded(updated));
   }
 }
-

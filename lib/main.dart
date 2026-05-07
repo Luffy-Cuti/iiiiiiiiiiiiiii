@@ -22,6 +22,7 @@ import 'features/home/bloc/video_bloc.dart';
 import 'features/upload/bloc/upload_bloc.dart';
 
 import 'features/upload/repository/upload_repository.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,7 +40,9 @@ Future<void> main() async {
 
 Future<void> _initFirebase() async {
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.playIntegrity,
       appleProvider: AppleProvider.deviceCheck,

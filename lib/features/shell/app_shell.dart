@@ -10,7 +10,7 @@ import '../auth/view/login_page.dart';
 import '../home/view/home_screen.dart';
 import '../auth/bloc/login_bloc.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   const AppShell({
     required this.authRepository,
     required this.loginBlocFactory,
@@ -19,18 +19,31 @@ class AppShell extends StatelessWidget {
 
   final AuthRepository authRepository;
   final LoginBloc Function() loginBlocFactory;
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  late final Future<bool> _prepareAuthFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareAuthFuture = _prepareAuth();
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: _prepareAuth(),
+      future: _prepareAuthFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const SplashScreen();
         }
 
         return StreamBuilder<AuthUser?>(
-          stream: authRepository.authStateChanges(),
+          stream: widget.authRepository.authStateChanges(),
           builder: (context, authSnapshot) {
             if (authSnapshot.connectionState == ConnectionState.waiting) {
               return const SplashScreen();
@@ -48,9 +61,11 @@ class AppShell extends StatelessWidget {
 
                   final isDone = firstLaunchSnapshot.data ?? false;
                   if (!isDone) {
-                    return OnboardingScreen(loginBlocFactory: loginBlocFactory);
+                    return OnboardingScreen(
+                      loginBlocFactory: widget.loginBlocFactory,
+                    );
                   }
-                  return LoginPage(bloc: loginBlocFactory());
+                  return LoginPage(bloc: widget.loginBlocFactory());
                 },
               );
             }
@@ -64,13 +79,13 @@ class AppShell extends StatelessWidget {
   Future<bool> _prepareAuth() async {
     await Future<void>.delayed(const Duration(seconds: 2));
     if (await AuthLocalStorage.shouldAutoLogout()) {
-      await authRepository.signOut();
+      await widget.authRepository.signOut();
       await AuthLocalStorage.clearLoginStatus();
     }
     try {
-      await authRepository.signInWithGoogle(silent: true);
+      await widget.authRepository.signInWithGoogle(silent: true);
     } catch (_) {
-      // Ignore revoked token or no previous session.
+
     }
     return true;
   }

@@ -96,13 +96,17 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> signInWithGoogle({bool silent = false}) async {
-    GoogleSignInAccount? account;
+    final GoogleSignInAccount? account;
     if (silent) {
       account = await _googleSignIn.signInSilently();
-    }
-    account ??= await _googleSignIn.signIn();
-    if (account == null) {
-      throw FirebaseAuthException(code: 'google-cancelled');
+      if (account == null) {
+        return;
+      }
+    } else {
+      account = await _googleSignIn.signIn();
+      if (account == null) {
+        throw FirebaseAuthException(code: 'google-cancelled');
+      }
     }
 
     final auth = await account.authentication;
