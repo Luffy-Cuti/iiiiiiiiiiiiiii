@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
 class VideoApiClient {
@@ -25,10 +24,10 @@ class VideoApiClient {
   }
 
   Future<http.Response> get(
-    String path, {
-    Map<String, String>? queryParameters,
-    Map<String, String>? headers,
-  }) async {
+      String path, {
+        Map<String, String>? queryParameters,
+        Map<String, String>? headers,
+      }) async {
     final response = await _httpClient.get(
       _buildUri(path, queryParameters),
       headers: {...defaultHeaders, ...?headers},
@@ -38,20 +37,37 @@ class VideoApiClient {
   }
 
   Future<http.Response> post(
-    String path, {
-    Map<String, dynamic>? body,
-    Map<String, String>? queryParameters,
-    Map<String, String>? headers,
-  }) async {
+      String path, {
+        dynamic body, // Đổi thành dynamic để nhận cả Map (cho x-www-form) hoặc String (cho JSON)
+        Map<String, String>? queryParameters,
+        Map<String, String>? headers,
+      }) async {
+
+    final contentType = headers?['Content-Type'] ?? 'application/json';
+
+
+    Object? finalBody;
+    if (body != null) {
+      if (contentType == 'application/json') {
+        finalBody = body is String ? body : jsonEncode(body);
+      } else if (contentType == 'application/x-www-form-urlencoded') {
+
+        finalBody = body;
+      } else {
+        finalBody = body;
+      }
+    }
+
     final response = await _httpClient.post(
       _buildUri(path, queryParameters),
       headers: {
         ...defaultHeaders,
-        'Content-Type': 'application/json',
+        'Content-Type': contentType,
         ...?headers,
       },
-      body: jsonEncode(body ?? const <String, dynamic>{}),
+      body: finalBody,
     );
+
     _throwIfNeeded(response);
     return response;
   }
@@ -63,7 +79,6 @@ class VideoApiClient {
     throw VideoApiException(response.statusCode, response.body);
   }
 }
-
 
 class VideoApiException implements Exception {
   VideoApiException(this.statusCode, this.message);

@@ -5,6 +5,8 @@ import '../../auth/services/auth_local_storage.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:video_player/video_player.dart';
 import '../../auth/view/login_page.dart';
+
+import '../../search/bloc/search_page.dart';
 import '../../upload/view/upload_video_page.dart';
 
 import '../../upload/bloc/upload_bloc.dart';
@@ -130,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_bottomIndex == 1) {
-      return const _SimpleTabPage(title: 'Search video, channel');
+      return const SearchPage();
     }
 
     if (_bottomIndex == 2) {
