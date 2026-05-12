@@ -22,18 +22,25 @@ class VideoRepository {
         queryParameters: {
           'page': '0',
           'size': '20',
-          'msisdn': '',
+          'msisdn': '+67076796381',
           'timestamp': timestamp,
           'security': '',
           'lastHashId': '',
         },
       );
 
+      print('====================');
+      print('STATUS CODE: ${response.statusCode}');
+      print('RESPONSE BODY: ${response.body}');
+      print('====================');
+
       final videos = _extractVideoList(response.body);
+
+      print('TOTAL VIDEOS: ${videos.length}');
+
       return videos;
     } catch (e) {
       print("API ERROR: $e");
-
       return [];
     }
   }
