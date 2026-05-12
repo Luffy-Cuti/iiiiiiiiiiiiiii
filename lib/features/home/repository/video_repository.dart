@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
+import '../../../core/config/app_config.dart';
 import '../models/channel_model.dart';
 import '../models/video_model.dart';
 import '../../../core/network/video_api_client.dart';
@@ -22,26 +24,41 @@ class VideoRepository {
         queryParameters: {
           'page': '0',
           'size': '20',
-          'msisdn': '+67076796381',
+          'msisdn': AppConfig.defaultMsisdn,
           'timestamp': timestamp,
           'security': '',
           'lastHashId': '',
         },
       );
 
-      print('====================');
-      print('STATUS CODE: ${response.statusCode}');
-      print('RESPONSE BODY: ${response.body}');
-      print('====================');
+      _debugLog('Video API status: ${response.statusCode}');
 
       final videos = _extractVideoList(response.body);
 
-      print('TOTAL VIDEOS: ${videos.length}');
+      _debugLog('Video API returned ${videos.length} videos');
 
       return videos;
-    } catch (e) {
-      print("API ERROR: $e");
-      return [];
+    } catch (error, stackTrace) {
+      _debugLog('Video API failed: $error\n$stackTrace');
+      return _fetchVideosFromFirestoreFallback();
+    }
+  }
+
+  Future<List<VideoModel>> _fetchVideosFromFirestoreFallback() async {
+    try {
+      final snapshot = await _firestore
+          .collection('videos')
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .get();
+
+      final videos = snapshot.docs.map(_toVideoModel).toList();
+      _debugLog('Firestore fallback returned ${videos.length} videos');
+
+      return videos;
+    } catch (error, stackTrace) {
+      _debugLog('Firestore fallback failed: $error\n$stackTrace');
+      return const [];
     }
   }
 
@@ -277,5 +294,10 @@ class VideoRepository {
     if (value is String) return value.toLowerCase() == 'true' || value == '1';
     if (value is num) return value != 0;
     return false;
+  }
+}
+void _debugLog(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
   }
 }

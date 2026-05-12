@@ -46,7 +46,9 @@ class VideoBloc extends Bloc<VideoEvent, VideoState> {
       final liked = !video.isLiked;
       return video.copyWith(
         isLiked: liked,
-        likeCount: liked ? video.likeCount + 1 : video.likeCount - 1,
+        likeCount: liked
+            ? video.likeCount + 1
+            : (video.likeCount > 0 ? video.likeCount - 1 : 0),
       );
     }).toList();
 

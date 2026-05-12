@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../config/app_config.dart';
+
 class VideoApiClient {
   VideoApiClient({
     http.Client? httpClient,
-    this.baseUrl = 'https://timordev.ringme.vn',
+    this.baseUrl = AppConfig.videoApiBaseUrl,
     this.defaultHeaders = const {
       'Client-Type': 'Android',
-      'sec-api': '123',
+      'sec-api': AppConfig.videoApiSecret,
       'Accept-Language': 'vi',
     },
   }) : _httpClient = httpClient ?? http.Client();
@@ -38,7 +40,7 @@ class VideoApiClient {
 
   Future<http.Response> post(
       String path, {
-        dynamic body, // Đổi thành dynamic để nhận cả Map (cho x-www-form) hoặc String (cho JSON)
+        dynamic body,
         Map<String, String>? queryParameters,
         Map<String, String>? headers,
       }) async {
@@ -50,9 +52,6 @@ class VideoApiClient {
     if (body != null) {
       if (contentType == 'application/json') {
         finalBody = body is String ? body : jsonEncode(body);
-      } else if (contentType == 'application/x-www-form-urlencoded') {
-
-        finalBody = body;
       } else {
         finalBody = body;
       }

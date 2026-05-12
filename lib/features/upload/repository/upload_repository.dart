@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
 import '../../../core/network/video_api_client.dart';
 import '../../../core/network/video_api_endpoints.dart';
 
@@ -22,7 +24,7 @@ class UploadRepository {
   final http.Client _httpClient;
 
   static const _uploadTimeout = Duration(seconds: 450);
-  static const _uploadPassword = '9EBB7AE993E7FCDFA600E108CC21A259';
+
 
   Future<String> uploadVideo({
     required File file,
@@ -79,7 +81,7 @@ class UploadRepository {
       ..fields['msisdn'] = msisdn
       ..fields['timestamp'] = timestamp
       ..fields['security'] = ''
-      ..fields['mpw'] = _uploadPassword
+      ..fields['mpw'] = AppConfig.uploadPassword
       ..fields['fName'] = file.uri.pathSegments.isEmpty
           ? file.path.split(Platform.pathSeparator).last
           : file.uri.pathSegments.last
@@ -95,10 +97,7 @@ class UploadRepository {
 
     final response = await http.Response.fromStream(streamedResponse);
 
-    print('====================');
-    print('UPLOAD STATUS: ${response.statusCode}');
-    print('UPLOAD RESPONSE: ${response.body}');
-    print('====================');
+    _debugLog('Upload status: ${response.statusCode}');
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw VideoApiException(response.statusCode, response.body);
@@ -140,12 +139,7 @@ class UploadRepository {
       },
     );
 
-    print('====================');
-    print('CREATE VIDEO SUCCESS');
-    print('CREATE VIDEO REQUEST');
-    print(videoUrl);
-    print(response.body);
-    print('====================');
+    _debugLog('Create video metadata success: ${response.statusCode}');
   }
 
   String _extractUploadedVideoUrl(String responseBody) {
@@ -241,5 +235,10 @@ class _ProgressMultipartRequest extends http.MultipartRequest {
     );
 
     return http.ByteStream(stream);
+  }
+}
+void _debugLog(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
@@ -84,7 +85,10 @@ class _AppShellState extends State<AppShell> {
     }
     try {
       await widget.authRepository.signInWithGoogle(silent: true);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('Silent Google sign-in failed: $error\n$stackTrace');
+      }
 
     }
     return true;
