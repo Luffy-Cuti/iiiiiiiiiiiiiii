@@ -358,15 +358,16 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
     await NotificationService.instance.showUploadProgress(0);
 
     try {
+      final user = FirebaseAuth.instance.currentUser;
       final uploadUserId = event.userId == 'guest' ? 'anonymous' : event.userId;
-      final downloadUrl = await _uploadRepository.uploadVideo(
+      final msisdn = _resolveMsisdn(user: user, fallbackUserId: uploadUserId);
+      final downloadUrl = await _uploadRepository.uploadVideoToKakoak(
         file: video.file,
-        userId: uploadUserId,
-        fileName: video.fileName,
+        msisdn: msisdn,
         onProgress: (progress) => add(_UploadTickEvent(progress: progress)),
       );
 
-      final user = FirebaseAuth.instance.currentUser;
+
       final username = (user?.displayName?.trim().isNotEmpty ?? false)
           ? user!.displayName!.trim()
           : (user?.email?.split('@').first ?? 'user_$uploadUserId');
@@ -533,6 +534,13 @@ class UploadVideoBloc extends Bloc<UploadVideoEvent, UploadVideoState> {
     }
 
     return null;
+  }
+  String _resolveMsisdn({required User? user, required String fallbackUserId}) {
+    final phoneNumber = user?.phoneNumber?.trim();
+    if (phoneNumber != null && phoneNumber.isNotEmpty) {
+      return phoneNumber;
+    }
+    return fallbackUserId;
   }
 
   Future<void> _setCrashlyticsKeys({
