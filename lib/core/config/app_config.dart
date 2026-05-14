@@ -15,6 +15,10 @@ class AppConfig {
     'VIDEO_API_DEFAULT_MSISDN',
     defaultValue: '+67076796381',
   );
+  static const revision = String.fromEnvironment(
+    'VIDEO_API_REVISION',
+    defaultValue: '1.0.0',
+  );
 
   static const uploadPassword = String.fromEnvironment(
     'VIDEO_UPLOAD_PASSWORD',

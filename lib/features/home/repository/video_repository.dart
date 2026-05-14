@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import '../../../core/config/app_config.dart';
+import '../models/category_model.dart';
 import '../models/channel_model.dart';
 import '../models/video_model.dart';
 import '../../../core/network/video_api_client.dart';
@@ -70,11 +71,11 @@ class VideoRepository {
   }) async {
     final response = await _apiClient.get(
       VideoApiEndpoints.getVideoByCategory.replaceAll('{id}', categoryId),
-      queryParameters: {
+        queryParameters: _withDefaultQueryParameters({
         'page': '$page',
         'size': '$size',
         'lastHashId': lastHashId,
-      },
+        }),
     );
 
     return _extractVideoList(response.body);
@@ -107,11 +108,17 @@ class VideoRepository {
     return list.map(_channelFromJson).toList();
   }
 
-  Future<List<Map<String, dynamic>>> fetchCategories() async {
-    final response = await _apiClient.get(VideoApiEndpoints.getCategoryList);
+  Future<List<CategoryModel>> fetchCategories() async {
+    final response = await _apiClient.get(
+      VideoApiEndpoints.getCategoryList,
+      queryParameters: _withDefaultQueryParameters({
+        'clientType': 'Android',
+        'revision': AppConfig.revision,
+      }),
+    );
     final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
     final list = _firstListByKeys(jsonMap, const ['data', 'result', 'items']);
-    return list;
+    return list.map(CategoryModel.fromJson).toList();
   }
 
   Future<Map<String, dynamic>> getMyChannelInfo() async {
@@ -184,6 +191,16 @@ class VideoRepository {
     });
 
     return document.id;
+  }
+  Map<String, String> _withDefaultQueryParameters(
+      Map<String, String> queryParameters,
+      ) {
+    return {
+      'msisdn': AppConfig.defaultMsisdn,
+      'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+      'security': '',
+      ...queryParameters,
+    };
   }
 
   List<VideoModel> _extractVideoList(String body) {

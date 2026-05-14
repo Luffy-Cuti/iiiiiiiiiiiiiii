@@ -16,6 +16,7 @@ import '../bloc/video_bloc.dart';
 import '../bloc/video_event.dart';
 import '../bloc/video_state.dart';
 import '../widgets/video_player_widget.dart';
+import 'category_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -157,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_bottomIndex == 3) {
-      return const _SimpleTabPage(title: 'Danh sách theo category');
+      return const CategoryScreen();
     }
 
     return Stack(
