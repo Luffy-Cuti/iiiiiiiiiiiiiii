@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/video_api_client.dart';
@@ -14,17 +14,14 @@ class UploadRepository {
   UploadRepository({
     FirebaseStorage? storage,
     VideoApiClient? apiClient,
-    http.Client? httpClient,
+    Dio? dio,
   }) : _storage = storage ?? FirebaseStorage.instance,
-        _apiClient = apiClient ?? VideoApiClient(httpClient: httpClient),
-        _httpClient = httpClient ?? http.Client();
+       _apiClient = apiClient ?? VideoApiClient(dio: dio);
 
   final FirebaseStorage _storage;
   final VideoApiClient _apiClient;
-  final http.Client _httpClient;
 
   static const _uploadTimeout = Duration(seconds: 450);
-
 
   Future<String> uploadVideo({
     required File file,
@@ -44,8 +41,7 @@ class UploadRepository {
 
       if (totalBytes <= 0) return;
 
-      final progress =
-      ((snapshot.bytesTransferred / totalBytes) * 100).round();
+      final progress = ((snapshot.bytesTransferred / totalBytes) * 100).round();
 
       onProgress(progress.clamp(0, 100));
     });
@@ -60,48 +56,38 @@ class UploadRepository {
     required String msisdn,
     required void Function(int progress) onProgress,
   }) async {
-    final uploadUri = Uri.parse(
-      '${_apiClient.baseUrl}${VideoApiEndpoints.uploadVideo}',
-    );
-
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final fileName = file.uri.pathSegments.isEmpty
+        ? file.path.split(Platform.pathSeparator).last
+        : file.uri.pathSegments.last;
 
-    final request = _ProgressMultipartRequest(
-      'POST',
-      uploadUri,
-      onProgress: (bytes, totalBytes) {
+    final formData = FormData.fromMap({
+      'msisdn': msisdn,
+      'timestamp': timestamp,
+      'security': '',
+      'mpw': AppConfig.uploadPassword,
+      'fName': fileName,
+      'uFile': await MultipartFile.fromFile(file.path, filename: fileName),
+    });
+
+    onProgress(0);
+
+    final response = await _apiClient.uploadMultipart(
+      VideoApiEndpoints.uploadVideo,
+      data: formData,
+      timeout: _uploadTimeout,
+      onSendProgress: (bytes, totalBytes) {
         if (totalBytes <= 0) return;
 
         final progress = ((bytes / totalBytes) * 90).round();
 
         onProgress(progress.clamp(0, 90));
       },
-    )
-      ..headers.addAll(_apiClient.defaultHeaders)
-      ..fields['msisdn'] = msisdn
-      ..fields['timestamp'] = timestamp
-      ..fields['security'] = ''
-      ..fields['mpw'] = AppConfig.uploadPassword
-      ..fields['fName'] = file.uri.pathSegments.isEmpty
-          ? file.path.split(Platform.pathSeparator).last
-          : file.uri.pathSegments.last
-      ..files.add(await http.MultipartFile.fromPath('uFile', file.path));
-
-    onProgress(0);
-
-    final streamedResponse = await _httpClient
-        .send(request)
-        .timeout(_uploadTimeout);
+    );
 
     onProgress(95);
 
-    final response = await http.Response.fromStream(streamedResponse);
-
     _debugLog('Upload status: ${response.statusCode}');
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw VideoApiException(response.statusCode, response.body);
-    }
 
     final videoUrl = _extractUploadedVideoUrl(response.body);
 
@@ -207,36 +193,6 @@ class UploadRepository {
   }
 }
 
-class _ProgressMultipartRequest extends http.MultipartRequest {
-  _ProgressMultipartRequest(
-      super.method,
-      super.url, {
-        required this.onProgress,
-      });
-
-  final void Function(int bytes, int totalBytes) onProgress;
-
-  @override
-  http.ByteStream finalize() {
-    final totalBytes = contentLength;
-
-    var bytes = 0;
-
-    final stream = super.finalize().transform(
-      StreamTransformer<List<int>, List<int>>.fromHandlers(
-        handleData: (data, sink) {
-          bytes += data.length;
-
-          onProgress(bytes, totalBytes);
-
-          sink.add(data);
-        },
-      ),
-    );
-
-    return http.ByteStream(stream);
-  }
-}
 void _debugLog(String message) {
   if (kDebugMode) {
     debugPrint(message);
