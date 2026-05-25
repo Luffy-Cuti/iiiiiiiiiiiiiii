@@ -148,8 +148,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Color(0xCC000000)],
-                stops: [0.55, 1],
+                colors: [Color(0x14000000), Color(0xDD000000)],
+                stops: [0.45, 1],
               ),
             ),
           ),
@@ -162,7 +162,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
             ),
           ),
         Positioned(
-          right: 12,
+          right: 10,
           bottom: 140,
           child: _RightActions(
             video: widget.video,
@@ -174,7 +174,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
         Positioned(
           left: 14,
           right: 90,
-          bottom: 110,
+          bottom: 98,
           child: _BottomMeta(
             video: widget.video,
             expandedDesc: _expandedDesc,
@@ -210,10 +210,22 @@ class _RightActions extends StatelessWidget {
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundImage: CachedNetworkImageProvider(
-                video.channel.avatarUrl,
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: CircleAvatar(
+                radius: 24,
+                backgroundImage: CachedNetworkImageProvider(
+                  video.channel.avatarUrl,
+                ),
               ),
             ),
             Positioned(
@@ -338,7 +350,14 @@ class _ActionButtonState extends State<_ActionButton>
               scale: _controller,
               child: Icon(widget.icon, color: widget.color, size: 34),
             ),
-            Text(widget.label, style: const TextStyle(fontSize: 12)),
+            Text(
+              widget.label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                shadows: [Shadow(blurRadius: 8, color: Colors.black54)],
+              ),
+            ),
           ],
         ),
       ),
@@ -361,6 +380,7 @@ class _BottomMeta extends StatelessWidget {
   Widget build(BuildContext context) {
     final descStyle = const TextStyle(
       fontSize: 13,
+      height: 1.35,
       shadows: [Shadow(blurRadius: 2)],
     );
 
