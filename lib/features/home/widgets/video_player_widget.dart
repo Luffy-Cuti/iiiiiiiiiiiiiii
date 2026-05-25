@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
@@ -128,19 +126,18 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   @override
   Widget build(BuildContext context) {
     final chewie = _chewieController;
+    final bottomOffset = MediaQuery.paddingOf(context).bottom + 16;
 
     return Stack(
       fit: StackFit.expand,
       children: [
         GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: _togglePlay,
           onDoubleTap: _handleDoubleTap,
           child: chewie == null
-              ? CachedNetworkImage(
-                  imageUrl: widget.video.thumbnailUrl,
-                  fit: BoxFit.cover,
-                )
-              : Chewie(controller: chewie),
+              ? _VideoPreview(video: widget.video)
+              : IgnorePointer(child: Chewie(controller: chewie)),
         ),
         IgnorePointer(
           child: Container(
@@ -163,7 +160,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
           ),
         Positioned(
           right: 12,
-          bottom: 140,
+          bottom: bottomOffset,
           child: _RightActions(
             video: widget.video,
             onLike: widget.onLike,
@@ -174,7 +171,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
         Positioned(
           left: 14,
           right: 90,
-          bottom: 110,
+          bottom: bottomOffset,
           child: _BottomMeta(
             video: widget.video,
             expandedDesc: _expandedDesc,
@@ -184,6 +181,39 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
           ),
         ),
       ],
+    );
+  }
+}
+
+class _VideoPreview extends StatelessWidget {
+  const _VideoPreview({required this.video});
+
+  final VideoModel video;
+
+  @override
+  Widget build(BuildContext context) {
+    final thumbnailUrl = video.thumbnailUrl.trim();
+
+    if (_isNetworkUrl(thumbnailUrl)) {
+      return CachedNetworkImage(
+        imageUrl: thumbnailUrl,
+        fit: BoxFit.cover,
+        errorWidget: (context, url, error) => const _LoadingPreview(),
+      );
+    }
+
+    return const _LoadingPreview();
+  }
+}
+
+class _LoadingPreview extends StatelessWidget {
+  const _LoadingPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Colors.black,
+      child: Center(child: CircularProgressIndicator(color: Colors.white)),
     );
   }
 }
@@ -210,12 +240,7 @@ class _RightActions extends StatelessWidget {
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundImage: CachedNetworkImageProvider(
-                video.channel.avatarUrl,
-              ),
-            ),
+            _ChannelAvatar(avatarUrl: video.channel.avatarUrl, radius: 24),
             Positioned(
               bottom: -8,
               child: GestureDetector(
@@ -257,20 +282,50 @@ class _RightActions extends StatelessWidget {
         const SizedBox(height: 14),
         RotationTransition(
           turns: discController,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white54),
-              image: DecorationImage(
-                image: CachedNetworkImageProvider(video.channel.avatarUrl),
-                fit: BoxFit.cover,
-              ),
-            ),
+          child: _ChannelAvatar(
+            avatarUrl: video.channel.avatarUrl,
+            radius: 22,
+            hasBorder: true,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ChannelAvatar extends StatelessWidget {
+  const _ChannelAvatar({
+    required this.avatarUrl,
+    required this.radius,
+    this.hasBorder = false,
+  });
+
+  final String avatarUrl;
+  final double radius;
+  final bool hasBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = avatarUrl.trim();
+    final imageProvider = _isNetworkUrl(url)
+        ? CachedNetworkImageProvider(url)
+        : null;
+
+    return Container(
+      width: radius * 2,
+      height: radius * 2,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: hasBorder ? Border.all(color: Colors.white54) : null,
+      ),
+      child: CircleAvatar(
+        radius: radius,
+        backgroundColor: Colors.white24,
+        backgroundImage: imageProvider,
+        child: imageProvider == null
+            ? Icon(Icons.person, size: radius, color: Colors.white)
+            : null,
+      ),
     );
   }
 }
@@ -292,6 +347,10 @@ class _ActionButton extends StatefulWidget {
 
   @override
   State<_ActionButton> createState() => _ActionButtonState();
+}
+
+bool _isNetworkUrl(String url) {
+  return url.startsWith('http://') || url.startsWith('https://');
 }
 
 class _ActionButtonState extends State<_ActionButton>
@@ -359,8 +418,14 @@ class _BottomMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final descStyle = const TextStyle(
-      fontSize: 13,
+    final title = video.description.trim().isNotEmpty
+        ? video.description.trim()
+        : 'Video';
+    final showMore = title.length > 80;
+    final titleStyle = const TextStyle(
+      fontSize: 16,
+      height: 1.25,
+      fontWeight: FontWeight.w700,
       shadows: [Shadow(blurRadius: 2)],
     );
 
@@ -380,16 +445,20 @@ class _BottomMeta extends StatelessWidget {
         GestureDetector(
           onTap: onToggleDesc,
           child: Text(
-            expandedDesc ? video.description : _truncate(video.description),
-            maxLines: expandedDesc ? 6 : 2,
+            expandedDesc ? title : _truncate(title),
+            maxLines: expandedDesc ? 5 : 2,
             overflow: TextOverflow.ellipsis,
-            style: descStyle,
+            style: titleStyle,
           ),
         ),
-        Text(
-          expandedDesc ? 'Thu gọn' : 'xem thêm',
-          style: const TextStyle(fontSize: 12, color: Colors.white70),
-        ),
+        if (showMore)
+          GestureDetector(
+            onTap: onToggleDesc,
+            child: Text(
+              expandedDesc ? 'Thu gọn' : 'xem thêm',
+              style: const TextStyle(fontSize: 12, color: Colors.white70),
+            ),
+          ),
         const SizedBox(height: 8),
         SizedBox(height: 18, child: _MarqueeMusic(text: '♪ ${video.music}')),
       ],

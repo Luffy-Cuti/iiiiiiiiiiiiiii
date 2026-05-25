@@ -1,17 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:video_player/video_player.dart';
+
 import '../../auth/bloc/login_bloc.dart';
 import '../../auth/repository/firebase_auth_repository.dart';
 import '../../auth/services/auth_local_storage.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:video_player/video_player.dart';
 import '../../auth/view/login_page.dart';
-
 import '../../search/bloc/search_page.dart';
 import '../../upload/view/upload_video_page.dart';
-
-import '../../upload/bloc/upload_bloc.dart';
 import '../bloc/video_bloc.dart';
 import '../bloc/video_event.dart';
 import '../bloc/video_state.dart';
@@ -50,6 +50,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _prepareVideoWindow(VideoLoaded state, int activeIndex) async {
     _currentVideoIndex = activeIndex;
+    if (_bottomIndex != 0) {
+      _pauseAllVideos();
+      return;
+    }
+
     final candidates = <int>{
       if (activeIndex - 1 >= 0) activeIndex - 1,
       activeIndex,
@@ -57,11 +62,11 @@ class _HomeScreenState extends State<HomeScreen> {
     };
 
     for (final index in candidates) {
-      void _debugLog(String message) {
-        if (kDebugMode) {
-          debugPrint(message);
-        }
-      }
+      await _initializeController(
+        state,
+        index,
+        shouldPlay: index == activeIndex,
+      );
     }
 
     final toDispose = _videoControllers.keys
@@ -91,8 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadingIndexes.add(index);
     try {
       final videoUrl = state.videos[index].videoUrl;
-      final file = await DefaultCacheManager().getSingleFile(videoUrl);
-      final controller = VideoPlayerController.file(file);
+      final controller = await _createVideoController(videoUrl);
       await controller.initialize();
       controller.setLooping(true);
 
@@ -117,11 +121,42 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<VideoPlayerController> _createVideoController(String videoUrl) async {
+    final trimmedUrl = videoUrl.trim();
+    final uri = Uri.tryParse(trimmedUrl);
+
+    if (trimmedUrl.startsWith('assets/')) {
+      return VideoPlayerController.asset(trimmedUrl);
+    }
+
+    if (uri != null && uri.scheme == 'file') {
+      return VideoPlayerController.file(File.fromUri(uri));
+    }
+
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return VideoPlayerController.file(File(trimmedUrl));
+    }
+
+    final file = await DefaultCacheManager().getSingleFile(trimmedUrl);
+    return VideoPlayerController.file(file);
+  }
+
   void _onNavTap(int index) {
+    if (index != 0) {
+      _pauseAllVideos();
+    }
+
     setState(() => _bottomIndex = index);
   }
 
+  void _pauseAllVideos() {
+    for (final controller in _videoControllers.values) {
+      controller.pause();
+    }
+  }
+
   Future<void> _handleSignOut() async {
+    _pauseAllVideos();
     await AuthLocalStorage.clearLoginStatus();
     await FirebaseAuthRepository().signOut();
     if (!mounted) return;
@@ -315,22 +350,6 @@ class _FeedMessage extends StatelessWidget {
             ElevatedButton(onPressed: onAction, child: Text(actionLabel)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SimpleTabPage extends StatelessWidget {
-  const _SimpleTabPage({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        title,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
       ),
     );
   }

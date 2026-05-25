@@ -1,17 +1,22 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:convert';
+import 'package:flutter/services.dart';
+
 import '../../../core/config/app_config.dart';
+import '../../../core/network/video_api_client.dart';
+import '../../../core/network/video_api_endpoints.dart';
 import '../models/category_model.dart';
 import '../models/channel_model.dart';
 import '../models/video_model.dart';
-import '../../../core/network/video_api_client.dart';
-import '../../../core/network/video_api_endpoints.dart';
 
 class VideoRepository {
   VideoRepository({FirebaseFirestore? firestore, VideoApiClient? apiClient})
     : _firestore = firestore ?? FirebaseFirestore.instance,
       _apiClient = apiClient ?? VideoApiClient();
+
+  static const Duration _homeVideoApiTimeout = Duration(seconds: 5);
 
   final FirebaseFirestore _firestore;
   final VideoApiClient _apiClient;
@@ -20,17 +25,19 @@ class VideoRepository {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
 
-      final response = await _apiClient.get(
-        VideoApiEndpoints.getVideoRecommend,
-        queryParameters: {
-          'page': '0',
-          'size': '20',
-          'msisdn': AppConfig.defaultMsisdn,
-          'timestamp': timestamp,
-          'security': '',
-          'lastHashId': '',
-        },
-      );
+      final response = await _apiClient
+          .get(
+            VideoApiEndpoints.getVideoRecommend,
+            queryParameters: {
+              'page': '0',
+              'size': '20',
+              'msisdn': AppConfig.defaultMsisdn,
+              'timestamp': timestamp,
+              'security': '',
+              'lastHashId': '',
+            },
+          )
+          .timeout(_homeVideoApiTimeout);
 
       _debugLog('Video API status: ${response.statusCode}');
 
@@ -38,28 +45,22 @@ class VideoRepository {
 
       _debugLog('Video API returned ${videos.length} videos');
 
-      return videos;
+      final playableVideos = _playableVideos(videos);
+      if (playableVideos.isEmpty) {
+        return _sampleVideos('Video API returned no playable videos');
+      }
+
+      if (playableVideos.length < 2) {
+        final sampleVideos = await _sampleVideos(
+          'Video API returned only ${playableVideos.length} playable videos',
+        );
+        return [...playableVideos, ...sampleVideos].take(4).toList();
+      }
+
+      return playableVideos;
     } catch (error, stackTrace) {
       _debugLog('Video API failed: $error\n$stackTrace');
-      return _fetchVideosFromFirestoreFallback();
-    }
-  }
-
-  Future<List<VideoModel>> _fetchVideosFromFirestoreFallback() async {
-    try {
-      final snapshot = await _firestore
-          .collection('videos')
-          .orderBy('createdAt', descending: true)
-          .limit(20)
-          .get();
-
-      final videos = snapshot.docs.map(_toVideoModel).toList();
-      _debugLog('Firestore fallback returned ${videos.length} videos');
-
-      return videos;
-    } catch (error, stackTrace) {
-      _debugLog('Firestore fallback failed: $error\n$stackTrace');
-      return const [];
+      return _sampleVideos('Video API failed or timed out');
     }
   }
 
@@ -71,11 +72,11 @@ class VideoRepository {
   }) async {
     final response = await _apiClient.get(
       VideoApiEndpoints.getVideoByCategory.replaceAll('{id}', categoryId),
-        queryParameters: _withDefaultQueryParameters({
+      queryParameters: _withDefaultQueryParameters({
         'page': '$page',
         'size': '$size',
         'lastHashId': lastHashId,
-        }),
+      }),
     );
 
     return _extractVideoList(response.body);
@@ -192,9 +193,10 @@ class VideoRepository {
 
     return document.id;
   }
+
   Map<String, String> _withDefaultQueryParameters(
-      Map<String, String> queryParameters,
-      ) {
+    Map<String, String> queryParameters,
+  ) {
     return {
       'msisdn': AppConfig.defaultMsisdn,
       'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
@@ -237,35 +239,6 @@ class VideoRepository {
       }
     }
     return const [];
-  }
-
-  VideoModel _toVideoModel(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data();
-    final channelId = data['channelId'] as String? ?? 'unknown';
-    final username = data['username'] as String? ?? 'user';
-
-    return VideoModel(
-      id: doc.id,
-      videoUrl: data['videoUrl'] as String? ?? '',
-      thumbnailUrl: (data['thumbnailUrl'] as String?)?.trim().isNotEmpty == true
-          ? (data['thumbnailUrl'] as String)
-          : 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=500',
-      description: data['description'] as String? ?? '',
-      likeCount: (data['likeCount'] as num?)?.toInt() ?? 0,
-      commentCount: (data['commentCount'] as num?)?.toInt() ?? 0,
-      shareCount: (data['shareCount'] as num?)?.toInt() ?? 0,
-      channel: ChannelModel(
-        id: channelId,
-        username: username,
-        avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true
-            ? (data['avatarUrl'] as String)
-            : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200',
-        isFollowed: false,
-      ),
-      music: data['music'] as String? ?? '',
-      isLiked: false,
-      isFollowed: false,
-    );
   }
 
   VideoModel _videoFromJson(Map<String, dynamic> data) {
@@ -312,7 +285,74 @@ class VideoRepository {
     if (value is num) return value != 0;
     return false;
   }
+
+  List<VideoModel> _playableVideos(List<VideoModel> videos) {
+    return videos.where((video) => video.videoUrl.trim().isNotEmpty).toList();
+  }
+
+  Future<List<VideoModel>> _sampleVideos(String reason) async {
+    final assets = await _localVideoAssets();
+    _debugLog('$reason. Using ${assets.length} local sample videos.');
+
+    return [
+      for (var index = 0; index < assets.length; index++)
+        _sampleVideoFromAsset(assets[index], index),
+    ];
+  }
+
+  Future<List<String>> _localVideoAssets() async {
+    try {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final assets =
+          manifest.listAssets().where(_isSupportedLocalVideoAsset).toList()
+            ..sort();
+
+      return assets.take(4).toList();
+    } catch (error, stackTrace) {
+      _debugLog('Read local video assets failed: $error\n$stackTrace');
+      return const [];
+    }
+  }
+
+  bool _isSupportedLocalVideoAsset(String asset) {
+    final lowerAsset = asset.toLowerCase();
+    return lowerAsset.startsWith('assets/videos/') &&
+        (lowerAsset.endsWith('.mp4') ||
+            lowerAsset.endsWith('.mov') ||
+            lowerAsset.endsWith('.m4v') ||
+            lowerAsset.endsWith('.webm'));
+  }
+
+  VideoModel _sampleVideoFromAsset(String asset, int index) {
+    final number = index + 1;
+    return VideoModel(
+      id: 'local-video-$number',
+      videoUrl: asset,
+      thumbnailUrl: '',
+      description: _assetDisplayName(asset),
+      likeCount: 1000 + index * 137,
+      commentCount: 40 + index * 11,
+      shareCount: 20 + index * 7,
+      channel: ChannelModel(
+        id: 'local-channel-$number',
+        username: 'local_video_$number',
+        avatarUrl: '',
+        isFollowed: false,
+      ),
+      music: 'Local debug audio $number',
+      isLiked: false,
+      isFollowed: false,
+    );
+  }
+
+  String _assetDisplayName(String asset) {
+    final fileName = asset.split('/').last;
+    final dotIndex = fileName.lastIndexOf('.');
+    final name = dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
+    return name.replaceAll(RegExp(r'[_-]+'), ' ');
+  }
 }
+
 void _debugLog(String message) {
   if (kDebugMode) {
     debugPrint(message);
