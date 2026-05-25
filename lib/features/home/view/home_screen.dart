@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final Set<int> _loadingIndexes = {};
   int _bottomIndex = 0;
   int _currentVideoIndex = 0;
+  bool _isForYouTab = true;
 
   @override
   void initState() {
@@ -223,37 +224,101 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildTopBar() {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            const Spacer(),
-            Row(
-              children: const [
-                Text('Following', style: TextStyle(color: Colors.white70)),
-                SizedBox(width: 16),
-                Text(
-                  'For You',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            Expanded(
+              child: Align(
+                alignment: Alignment.center,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black45,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildFeedTabChip(
+                        label: 'Following',
+                        isActive: !_isForYouTab,
+                        onTap: () => setState(() => _isForYouTab = false),
+                      ),
+                      _buildFeedTabChip(
+                        label: 'For You',
+                        isActive: _isForYouTab,
+                        onTap: () => setState(() => _isForYouTab = true),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-            const Spacer(),
-            const Icon(Icons.search, size: 28),
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(17),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: const Icon(Icons.search, size: 20),
+            ),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildFeedTabChip({
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: isActive ? Colors.white : Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 180),
+            style: TextStyle(
+              color: isActive ? Colors.black : Colors.white70,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+            child: Text(label),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomBar() {
-    return BottomNavigationBar(
-      currentIndex: _bottomIndex,
-      onTap: _onNavTap,
-      backgroundColor: Colors.black,
-      selectedItemColor: Colors.white,
-      unselectedItemColor: Colors.white70,
-      type: BottomNavigationBarType.fixed,
-      items: [
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.black,
+        border: Border(top: BorderSide(color: Colors.white12, width: .5)),
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _bottomIndex,
+        onTap: _onNavTap,
+        backgroundColor: Colors.black,
+        elevation: 0,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white60,
+        selectedFontSize: 11,
+        unselectedFontSize: 11,
+        type: BottomNavigationBarType.fixed,
+        items: [
         const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         const BottomNavigationBarItem(
           icon: Icon(Icons.search),
@@ -283,6 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'Profile',
         ),
       ],
+      ),
     );
   }
 }
