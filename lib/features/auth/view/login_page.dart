@@ -279,7 +279,7 @@ class _LoginPageState extends State<LoginPage>
                             ? null
                             : () => widget.bloc.add(const GoogleLoginTapped()),
                         icon: Image.asset(
-                          'assets/icons/google.png',
+                          'assets/icon/google.png',
                           width: 28,
                           height: 28,
                         ),
