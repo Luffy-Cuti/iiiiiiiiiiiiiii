@@ -278,7 +278,11 @@ class _LoginPageState extends State<LoginPage>
                         onPressed: state.isLoading
                             ? null
                             : () => widget.bloc.add(const GoogleLoginTapped()),
-                        icon: const Icon(Icons.g_mobiledata, size: 28),
+                        icon: Image.asset(
+                          'assets/icons/google.png',
+                          width: 28,
+                          height: 28,
+                        ),
                         label: const Text(AppStrings.googleSignIn),
                       ),
                       if (Platform.isIOS || Platform.isMacOS)

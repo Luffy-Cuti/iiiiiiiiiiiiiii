@@ -1,6 +1,12 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 
 import '../models/video_model.dart';
@@ -277,7 +283,7 @@ class _RightActions extends StatelessWidget {
         _ActionButton(
           icon: Icons.share,
           label: '${video.shareCount}',
-          onTap: () {},
+          onTap: () => _shareVideo(context),
         ),
         const SizedBox(height: 14),
         RotationTransition(
@@ -290,6 +296,129 @@ class _RightActions extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _shareVideo(BuildContext context) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dang chuan bi video de chia se...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      final shareFile = await _shareableVideoFile(video);
+      if (!context.mounted) return;
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile(
+              shareFile.path,
+              mimeType: _videoMimeType(shareFile.path),
+              name: shareFile.uri.pathSegments.last,
+            ),
+          ],
+          sharePositionOrigin: _sharePositionOrigin(context),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Khong the chia se video luc nay.')),
+      );
+    }
+  }
+
+  Future<File> _shareableVideoFile(VideoModel video) async {
+    final videoUrl = video.videoUrl.trim();
+    if (videoUrl.isEmpty) {
+      throw StateError('Video url is empty.');
+    }
+
+    if (_isNetworkUrl(videoUrl)) {
+      final cachedFile = await DefaultCacheManager().getSingleFile(videoUrl);
+      return _copyVideoToShareCache(cachedFile, video, videoUrl);
+    }
+
+    final localFile = File(videoUrl);
+    if (await localFile.exists()) {
+      return _copyVideoToShareCache(localFile, video, videoUrl);
+    }
+
+    return _copyAssetVideoToShareCache(video, videoUrl);
+  }
+
+  Future<File> _copyAssetVideoToShareCache(
+    VideoModel video,
+    String assetPath,
+  ) async {
+    final data = await rootBundle.load(assetPath);
+    final targetFile = await _shareCacheFile(video, assetPath);
+    await targetFile.writeAsBytes(
+      data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+      flush: true,
+    );
+    return targetFile;
+  }
+
+  Future<File> _copyVideoToShareCache(
+    File sourceFile,
+    VideoModel video,
+    String sourceName,
+  ) async {
+    final targetFile = await _shareCacheFile(video, sourceName);
+    if (sourceFile.path == targetFile.path) return targetFile;
+    if (await targetFile.exists()) {
+      await targetFile.delete();
+    }
+    return sourceFile.copy(targetFile.path);
+  }
+
+  Future<File> _shareCacheFile(VideoModel video, String sourceName) async {
+    final tempDir = await getTemporaryDirectory();
+    final extension = _videoExtension(sourceName);
+    final fileName = '${_shareFileBaseName(video)}.$extension';
+    return File('${tempDir.path}${Platform.pathSeparator}$fileName');
+  }
+
+  String _shareFileBaseName(VideoModel video) {
+    final rawName = video.id.trim().isNotEmpty
+        ? video.id.trim()
+        : video.description.trim();
+    final sanitized = rawName
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    return sanitized.isEmpty ? 'shared_video' : sanitized;
+  }
+
+  String _videoExtension(String sourceName) {
+    final uri = Uri.tryParse(sourceName);
+    final path = (uri?.path ?? sourceName).toLowerCase();
+    for (final extension in ['mp4', 'mov', 'm4v', 'webm', '3gp', 'mkv']) {
+      if (path.endsWith('.$extension')) return extension;
+    }
+    return 'mp4';
+  }
+
+  String _videoMimeType(String path) {
+    final extension = _videoExtension(path);
+    return switch (extension) {
+      'mov' => 'video/quicktime',
+      'm4v' => 'video/x-m4v',
+      'webm' => 'video/webm',
+      '3gp' => 'video/3gpp',
+      'mkv' => 'video/x-matroska',
+      _ => 'video/mp4',
+    };
+  }
+
+  Rect? _sharePositionOrigin(BuildContext context) {
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 }
 
