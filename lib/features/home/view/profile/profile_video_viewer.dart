@@ -121,8 +121,16 @@ class _ProfileVideoViewerScreenState extends State<_ProfileVideoViewerScreen> {
       return VideoPlayerController.file(File(trimmedUrl));
     }
 
+    if (_isHlsUrl(uri)) {
+      return VideoPlayerController.networkUrl(uri);
+    }
+
     final file = await DefaultCacheManager().getSingleFile(trimmedUrl);
     return VideoPlayerController.file(file);
+  }
+
+  bool _isHlsUrl(Uri uri) {
+    return uri.path.toLowerCase().endsWith('.m3u8');
   }
 
   void _toggleLike(String videoId) {

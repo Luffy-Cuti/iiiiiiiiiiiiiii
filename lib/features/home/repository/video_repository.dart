@@ -79,7 +79,12 @@ class VideoRepository {
       }),
     );
 
-    return _extractVideoList(response.body);
+    final videos = _extractVideoList(response.body);
+    _debugLog(
+      'Category $categoryId API returned ${videos.length} videos, '
+      '${_playableVideos(videos).length} playable',
+    );
+    return videos;
   }
 
   Future<List<VideoModel>> searchVideos({
@@ -249,17 +254,36 @@ class VideoRepository {
 
     return VideoModel(
       id: (data['id'] ?? data['videoId'] ?? '').toString(),
-      videoUrl: (data['urlVideo'] ?? data['videoUrl'] ?? '').toString(),
-      thumbnailUrl: (data['thumbnail'] ?? data['thumbnailUrl'] ?? '')
-          .toString(),
-      description: (data['description'] ?? data['title'] ?? '').toString(),
-      likeCount: _asInt(data['totalLike'] ?? data['likeCount']),
-      commentCount: _asInt(data['totalComment'] ?? data['commentCount']),
-      shareCount: _asInt(data['totalShare'] ?? data['shareCount']),
+      videoUrl: _normalizeMediaUrl(
+        data['urlVideo'] ?? data['videoUrl'] ?? data['videoMedia'],
+      ),
+      thumbnailUrl: _normalizeMediaUrl(
+        data['thumbnail'] ??
+            data['thumbnailUrl'] ??
+            data['videoImage'] ??
+            data['imageThumb'] ??
+            data['imageSmall'],
+      ),
+      description:
+          (data['description'] ??
+                  data['title'] ??
+                  data['videoTitle'] ??
+                  data['videoDesc'] ??
+                  '')
+              .toString(),
+      likeCount: _asInt(
+        data['totalLike'] ?? data['totalLikes'] ?? data['likeCount'],
+      ),
+      commentCount: _asInt(
+        data['totalComment'] ?? data['totalComments'] ?? data['commentCount'],
+      ),
+      shareCount: _asInt(
+        data['totalShare'] ?? data['totalShares'] ?? data['shareCount'],
+      ),
       channel: _channelFromJson(channelData),
       music: (data['music'] ?? '').toString(),
-      isLiked: _asBool(data['isLiked']),
-      isFollowed: _asBool(data['isFollowed']),
+      isLiked: _asBool(data['isLiked'] ?? data['isLike']),
+      isFollowed: _asBool(data['isFollowed'] ?? data['isFollow']),
     );
   }
 
@@ -267,9 +291,24 @@ class VideoRepository {
     return ChannelModel(
       id: (data['id'] ?? data['channelId'] ?? '').toString(),
       username: (data['channelName'] ?? data['username'] ?? 'User').toString(),
-      avatarUrl: (data['avatarUrl'] ?? '').toString(),
-      isFollowed: _asBool(data['isFollowed']),
+      avatarUrl: _normalizeMediaUrl(data['avatarUrl'] ?? data['channelAvatar']),
+      isFollowed: _asBool(data['isFollowed'] ?? data['isFollow']),
     );
+  }
+
+  String _normalizeMediaUrl(dynamic value) {
+    final rawValue = value?.toString().trim() ?? '';
+    if (rawValue.isEmpty || rawValue == '/' || rawValue == '/null') {
+      return '';
+    }
+    if (rawValue.startsWith('http://') ||
+        rawValue.startsWith('https://') ||
+        rawValue.startsWith('assets/') ||
+        rawValue.startsWith('file:')) {
+      return rawValue;
+    }
+    final path = rawValue.startsWith('/') ? rawValue : '/$rawValue';
+    return '${AppConfig.videoApiBaseUrl}$path';
   }
 
   int _asInt(dynamic value) {
